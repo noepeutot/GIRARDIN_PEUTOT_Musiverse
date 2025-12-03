@@ -1,5 +1,9 @@
 import { NavBar } from "@/ui/navBar";
 
 export default function Home() {
-  return <NavBar/>;
+  return (
+    <main className="flex flex-col">
+      <NavBar />
+    </main>
+  );
 }

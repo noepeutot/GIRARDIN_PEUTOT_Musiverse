@@ -6,6 +6,7 @@
   --foreground: #171717;
 
   --button-color-yellow: #FBDB5C;
+  --bg-navbar-color: #342E1B; 
 }
 
 @theme inline {
