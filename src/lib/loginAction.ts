@@ -30,6 +30,14 @@ export async function authenticate(prevState : any, formData: FormData) {
     };
   }
 
-  redirect('/home'); 
+  try {
+    redirect('/home'); 
 
+  } catch (error) {
+    // Gérer les erreurs d'authentification
+    return {
+      message: 'La connexion a échoué. Veuillez vérifier vos identifiants.',
+      values: { login: rawLogin, mdp: ''}
+    };
+  }
 }
