@@ -1,21 +1,14 @@
-'use client';
+"use client";
 
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
 import Button from "@/ui/button";
 import { InputField } from "@/ui/inputField";
 import { useActionState } from "react";
 import { authenticate } from "@/lib/loginAction";
-import { error } from "console";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import Logo from "@/ui/logoMusiverse";
 
 const initialState = {
   message: "",
-  errors: { login : [], mdp: [] },
+  errors: { login: [], mdp: [] },
   values: { login: "", mdp: "" },
 };
 
@@ -23,21 +16,20 @@ export default function Login() {
   const [state, formAction] = useActionState(authenticate, initialState);
 
   return (
-    <main className="flex min-h-screen w-full flex-col items-center justify-center gap-y-10 py-32 px-16 text-pink-500">
-      <Image
-        src="/logoMusiverse.png"
-        alt="Musiverse logo"
-        width={100}
-        height={20}
-        priority
-      />
+    <main className="flex min-h-screen w-full flex-col items-center justify-center gap-y-10 text-(--text-color)">
+      <Logo />
       <h1 className="font-bold text-[2em]">Connectez-vous</h1>
-      <form action={formAction} className="flex flex-col gap-4 w-1/3">
+      <form action={formAction} className="flex flex-col gap-4 w-1/3 min-w-[225px]">
         <div>
-          <InputField type="text" label="Login" id="login" defaultValue={state.values?.login}/>
+          <InputField
+            type="text"
+            label="Login"
+            id="login"
+            defaultValue={state.values?.login}
+          />
           {state.errors?.login && (
             <p className="text-sm text-red-500 mt-1">
-              {state.errors.login.join(', ')}
+              {state.errors.login.join(", ")}
             </p>
           )}
         </div>
@@ -45,7 +37,7 @@ export default function Login() {
           <InputField type="password" label="Mot de passe" id="mdp" />
           {state.errors?.mdp && (
             <p className="text-sm text-red-500 mt-1">
-              {state.errors.mdp.join(', ')}
+              {state.errors.mdp.join(", ")}
             </p>
           )}
         </div>

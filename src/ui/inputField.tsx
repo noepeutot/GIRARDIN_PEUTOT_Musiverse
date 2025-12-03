@@ -17,7 +17,7 @@ export const InputField = ({type, label, id, defaultValue}: InputFieldProps) => 
         name={id}
         placeholder={label}
         defaultValue={defaultValue}
-        className="w-full p-2 border-3 border-pink-500 rounded-[10px]"
+        className="w-full p-2 border-3 border-[#000000] rounded-[10px] bg-[#F2F2F2] text-[#000000] focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
     </label>
   );
