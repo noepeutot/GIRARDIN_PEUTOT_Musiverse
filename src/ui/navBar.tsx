@@ -3,7 +3,7 @@ import { ButtonNavBar } from "./buttonNavBar";
 
 export const NavBar = () => {
   return (
-    <nav className="absolute bottom-0 w-full box-content flex items-center justify-between bg-(--bg-navbar-color) border-2 border-[#000000] rounded-[5px] py-1.5 px-4">
+    <nav className="fixed bottom-0 flex items-center justify-between bg-(--bg-navbar-color) border-2 border-[#000000] rounded-[10px] py-1.5 px-4 mb-2 left-4 right-4 my-4">
       <ButtonNavBar name="Accueil">
         <svg
           width="30"
@@ -36,7 +36,7 @@ export const NavBar = () => {
           />
         </svg>
       </ButtonNavBar>
-      <ButtonNavBar className="bg-[#F2F2F2] place-self-stretch w-12 h-12 rounded-[10px]">
+      <ButtonNavBar className="bg-[#F2F2F2] w-12 h-12 rounded-[10px]">
         <svg
           width="30"
           height="30"
