@@ -9,12 +9,12 @@ interface LogoProps {
 export default function Logo({w = 100, h = 20}: LogoProps) {
   return (
     <Image
-      src="/logoMusiverse.jpg"
+      src="/logoMusiverse.png"
       alt="Musiverse logo"
       width={w}
       height={h}
       priority
-      className='rounded-[50px]'
+      className='border-8 border-(--white)'
     />
       
     )

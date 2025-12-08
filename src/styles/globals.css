@@ -2,14 +2,19 @@
 
 :root {
   --white: #F2F2F2;
+  --black: #020202;
   --brown: #342E1B;
+  --yellow: #FEE594;
 
   --background-purple: #744DE5;
+  --background-yellow: var(--yellow);
   --background-white: var(--white);
+  --text-color-black: var(--black);
   --text-color: var(--white);
   --foreground: #171717;
 
   --button-color-yellow: #FBDB5C;
+  --button-color-brown: var(--brown);
   --bg-navbar-color: var(--brown); 
 }
 

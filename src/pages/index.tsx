@@ -16,8 +16,8 @@ export default function Login() {
   const [state, formAction] = useActionState(authenticate, initialState);
 
   return (
-    <main className="bg-(--background-purple) flex min-h-screen w-full flex-col items-center justify-center gap-y-10 text-(--text-color)">
-      <Logo />
+    <main className="bg-(--background-yellow) flex min-h-screen w-full flex-col items-center justify-center gap-y-10 text-(--text-color-black)">
+      <Logo w={200} h={200} />
       <h1 className="font-bold text-[2em] text-center">Connectez-vous</h1>
       <form action={formAction} className="flex flex-col gap-4 w-1/3 min-w-[225px]">
         <div>
