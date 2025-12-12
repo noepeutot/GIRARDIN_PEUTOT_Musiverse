@@ -1,4 +1,4 @@
-import Logo from "@/ui/logoMusiverse";
+import Image from "next/image";
 import { NavBar } from "@/ui/navBar";
 import { Post } from "@/ui/post";
 
@@ -10,24 +10,56 @@ export interface PostType {
   numberLike: number;
   numberView: number;
   numberReshare: number;
+  music?: MusicType;
+}
+
+export interface MusicType {
+  title: string;
+  artist: string;
+  albumCover: string;
+  url: string;
 }
 
 const post: PostType = {
   username: "Virag Mercédesz",
   datePosted: new Date(Date.now() - 8 * 60 * 1000),
-  content: "Besoin de vos oreilles avisées 🎧. J'ai retravaillé le mixage de ma dernière track 'Lost in Space'. J'ai l'impression que le kick écrase trop la voix sur le refrain (vers 0:45). Soyez honnêtes, je garde ou je recommence ?",
+  content:
+    "Besoin de vos oreilles avisées 🎧. J'ai retravaillé le mixage de ma dernière track 'Lost in Space'. J'ai l'impression que le kick écrase trop la voix sur le refrain (vers 0:45). Soyez honnêtes, je garde ou je recommence ?",
   numberComment: 160000,
   numberLike: 48800,
   numberView: 12000000,
-  numberReshare: 82000
-}
+  numberReshare: 82000,
+};
+
+const postMusic: PostType = {
+  username: "JihyoLovers",
+  datePosted: new Date(Date.now() - 6 * 60 * 60 * 1000),
+  content:
+    "Je viens d'écouter le titre solo de Jihyo sur le dernier album de Twice et je suis complètement bluffée par sa voix puissante ! 🥵",
+  numberComment: 5230,
+  numberLike: 69900,
+  numberView: 5120000,
+  numberReshare: 3570,
+  music: {
+    title: "Have Heart",
+    artist: "Heartless",
+    albumCover: "/albumCoverExample.png",
+    url: "/musicExample.mp4",
+  }
+};
 
 export default function Home() {
   return (
-    <main className="flex flex-col bg-(--background-white)">
+    <main className="flex flex-col bg-(--background-white) mb-22">
       {/* Home Header */}
       <header className="flex justify-around items-center py-4 mb-2 border-b border-solid border-gray-300">
-        <Logo w={36} h={36} />
+        <Image
+          src="/photoProfil.png"
+          alt="Profile Photo"
+          width={40}
+          height={40}
+          className="rounded-full"
+        />
         <h1 className="font-bold text-[1.4em]">Fil d'actualité</h1>
         <svg
           width="21"
@@ -48,10 +80,10 @@ export default function Home() {
       </header>
       {/* Feed */}
       <div className="flex flex-col gap-y-3">
-        <Post post={post}/>
-        <Post post={post}/>
-        <Post post={post}/>
-        <Post post={post}/>
+        <Post post={post} />
+        <Post post={postMusic} />
+        <Post post={post} />
+        <Post post={postMusic} />
       </div>
       <NavBar />
     </main>
