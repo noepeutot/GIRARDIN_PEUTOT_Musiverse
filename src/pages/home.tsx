@@ -20,6 +20,13 @@ export interface MusicType {
   url: string;
 }
 
+export const musicExample: MusicType = {
+  title: "Have Heart",
+  artist: "Heartless",
+  albumCover: "/albumCoverExample.png",
+  url: "/musicExample.mp4",
+};
+
 const post: PostType = {
   username: "Virag Mercédesz",
   datePosted: new Date(Date.now() - 8 * 60 * 1000),
@@ -40,17 +47,12 @@ const postMusic: PostType = {
   numberLike: 69900,
   numberView: 5120000,
   numberReshare: 3570,
-  music: {
-    title: "Have Heart",
-    artist: "Heartless",
-    albumCover: "/albumCoverExample.png",
-    url: "/musicExample.mp4",
-  }
+  music: musicExample
 };
 
 export default function Home() {
   return (
-    <main className="flex flex-col bg-(--background-white) mb-22">
+    <main className="flex flex-col pb-22 box-border">
       {/* Home Header */}
       <header className="flex justify-around items-center py-4 mb-2 border-b border-solid border-gray-300">
         <Image

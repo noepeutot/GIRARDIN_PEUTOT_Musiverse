@@ -1,5 +1,6 @@
 import React from "react";
 import { ButtonNavBar } from "./buttonNavBar";
+import Link  from "next/link";
 
 export const NavBar = () => {
   return (
@@ -36,7 +37,7 @@ export const NavBar = () => {
           />
         </svg>
       </ButtonNavBar>
-      <ButtonNavBar className="bg-[#F2F2F2] w-12 h-12 rounded-[10px]">
+      <ButtonNavBar link={"/createPost"} className="bg-[#F2F2F2] w-12 h-12 rounded-[10px]">
         <svg
           width="30"
           height="30"
@@ -51,21 +52,22 @@ export const NavBar = () => {
         </svg>
       </ButtonNavBar>
       <ButtonNavBar name="Musique">
-
-
-        <svg
-          width="30"
-          height="30"
-          viewBox="0 0 30 30"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            transform="scale(1.37)"
-            d="M7.66667 18.7778C7.66667 20.0051 6.17428 21 4.33333 21C2.49238 21 1 20.0051 1 18.7778C1 17.5505 2.49238 16.5556 4.33333 16.5556C6.17428 16.5556 7.66667 17.5505 7.66667 18.7778ZM7.66667 18.7778V3.22222L21 1V16.5556M21 16.5556C21 17.7829 19.5076 18.7778 17.6667 18.7778C15.8257 18.7778 14.3333 17.7829 14.3333 16.5556C14.3333 15.3283 15.8257 14.3333 17.6667 14.3333C19.5076 14.3333 21 15.3283 21 16.5556ZM7.66667 7.66667L21 5.44444"
-            stroke="#FEF9E4" stroke-width="2"
-          />
-        </svg>
+        <Link href="/createPost">
+          <svg
+            width="30"
+            height="30"
+            viewBox="0 0 30 30"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              transform="scale(1.37)"
+              d="M7.66667 18.7778C7.66667 20.0051 6.17428 21 4.33333 21C2.49238 21 1 20.0051 1 18.7778C1 17.5505 2.49238 16.5556 4.33333 16.5556C6.17428 16.5556 7.66667 17.5505 7.66667 18.7778ZM7.66667 18.7778V3.22222L21 1V16.5556M21 16.5556C21 17.7829 19.5076 18.7778 17.6667 18.7778C15.8257 18.7778 14.3333 17.7829 14.3333 16.5556C14.3333 15.3283 15.8257 14.3333 17.6667 14.3333C19.5076 14.3333 21 15.3283 21 16.5556ZM7.66667 7.66667L21 5.44444"
+              stroke="#FEF9E4"
+              stroke-width="2"
+            />
+          </svg>
+        </Link>
       </ButtonNavBar>
       <ButtonNavBar name="Diffusion">
         <svg

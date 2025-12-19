@@ -22,13 +22,13 @@ export const Post = ({ post }: PostProps) => {
     <article className="border-1 border-gray-300 rounded-[10px] mx-5 p-2">
       {/* Top bar of a post */}
       <header className="flex items-center justify-around mb-2">
-                <Image
-                  src="/photoProfil.png"
-                  alt="Profile Photo"
-                  width={32}
-                  height={32}
-                  className="rounded-full"
-                />
+        <Image
+          src="/photoProfil.png"
+          alt="Profile Photo"
+          width={32}
+          height={32}
+          className="rounded-full"
+        />
         <p className="flex gap-x-2 items-center font-bold ml-2 text-[0.9em]">
           {post.username}{" "}
           <span className="font-normal text-gray-500 text-[0.6em]">
