@@ -11,6 +11,7 @@ export interface PostType {
   numberView: number;
   numberReshare: number;
   music?: MusicType;
+  artistImage?: string;
 }
 
 export interface MusicType {
@@ -81,7 +82,7 @@ export default function Home() {
         </svg>
       </header>
       {/* Feed */}
-      <div className="flex flex-col gap-y-3">
+      <div className="flex flex-col gap-y-3 mx-5">
         <Post post={post} />
         <Post post={postMusic} />
         <Post post={post} />

@@ -82,13 +82,14 @@ export async function getTracksByTag(tag: string, limit: number = 20): Promise<J
 /**
  * Récupère les pistes d'un artiste par nom
  */
-export async function getTracksByArtist(artistName: string, limit: number = 10): Promise<JamendoTrack[]> {
+export async function getTracksByArtist(artistName: string, limit: number = 20): Promise<JamendoTrack[]> {
   const response = await jamendoFetch<JamendoTrack>('/tracks/', {
     artist_name: artistName,
     limit: limit.toString(),
     order: 'popularity_total',
     imagesize: '300',
   });
+  console.log(response.results);
   return response.results;
 }
 
@@ -152,37 +153,15 @@ export async function getAlbumTracks(albumId: string): Promise<JamendoTrack[]> {
 }
 
 /**
- * Récupère les albums populaires avec plus d'un titre
+ * Récupère les albums populaires
  */
 export async function getPopularAlbums(limit: number = 20): Promise<JamendoAlbum[]> {
-  // Demander plus d'albums pour pouvoir filtrer
-  interface AlbumWithTracks extends JamendoAlbum {
-    tracks?: { id: string }[];
-  }
-  
-  const response = await jamendoFetch<AlbumWithTracks>('/albums/tracks/', {
-    limit: Math.min(limit * 3, 50).toString(),
+  const response = await jamendoFetch<JamendoAlbum>('/albums/', {
+    limit: limit.toString(),
     order: 'popularity_total',
     imagesize: '300',
   });
-  
-  // Filtrer les albums avec plus d'un titre
-  const albumsWithMultipleTracks = response.results.filter(album => 
-    album.tracks && album.tracks.length > 1
-  );
-  
-  // Retourner sans le champ tracks
-  return albumsWithMultipleTracks.slice(0, limit).map(album => ({
-    id: album.id,
-    name: album.name,
-    releasedate: album.releasedate,
-    artist_id: album.artist_id,
-    artist_name: album.artist_name,
-    image: album.image,
-    zip: album.zip,
-    shorturl: album.shorturl,
-    shareurl: album.shareurl,
-  }));
+  return response.results;
 }
 
 /**
@@ -243,16 +222,77 @@ export async function getArtistById(artistId: string): Promise<JamendoArtist | n
 }
 
 /**
+ * Récupère les albums d'un artiste par son ID
+ */
+export async function getArtistAlbums(artistId: string, limit: number = 20): Promise<JamendoAlbum[]> {
+  const response = await jamendoFetch<JamendoAlbum>('/albums/', {
+    artist_id: artistId,
+    limit: limit.toString(),
+    imagesize: '300',
+  });
+  return response.results;
+}
+
+
+/**
  * Récupère les tracks d'un artiste par son ID
  */
 export async function getArtistTracksById(artistId: string, limit: number = 50): Promise<JamendoTrack[]> {
-  const response = await jamendoFetch<JamendoTrack>('/artists/tracks/', {
+  // L'API /artists/tracks/ retourne un artiste avec ses tracks imbriquées
+  interface ArtistWithTracks extends JamendoArtist {
+    tracks?: Array<{
+      id: string;
+      name: string;
+      duration: string;
+      album_id: string;
+      album_name: string;
+      album_image: string;
+      image: string;
+      audio: string;
+      audiodownload: string;
+      license_ccurl: string;
+      releasedate: string;
+    }>;
+  }
+  
+  const response = await jamendoFetch<ArtistWithTracks>('/artists/tracks/', {
     id: artistId,
     limit: limit.toString(),
     order: 'popularity_total',
     imagesize: '300',
   });
-  return response.results;
+  
+  if (response.results.length === 0 || !response.results[0].tracks) {
+    return [];
+  }
+  
+  const artist = response.results[0];
+  
+  const tracks = artist.tracks ?? [];
+  
+  // Convertir les tracks imbriquées en JamendoTrack
+  return tracks.slice(0, limit).map(track => ({
+    id: track.id,
+    name: track.name,
+    duration: parseInt(track.duration) || 0,
+    artist_id: artist.id,
+    artist_name: artist.name,
+    artist_idstr: '',
+    album_name: track.album_name,
+    album_id: track.album_id,
+    license_ccurl: track.license_ccurl,
+    position: 0,
+    releasedate: track.releasedate,
+    album_image: track.album_image || track.image,
+    audio: track.audio,
+    audiodownload: track.audiodownload,
+    prourl: '',
+    shorturl: '',
+    shareurl: '',
+    waveform: '',
+    image: track.image,
+    audiodownload_allowed: true,
+  }));
 }
 
 /**

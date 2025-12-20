@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Play, Pause, Plus, Check } from "lucide-react";
 import { ButtonNavBar } from "./buttonNavBar";
 import { usePlayer } from "@/lib/playerContext";
@@ -7,10 +8,12 @@ import { FullScreenPlayer } from "./fullScreenPlayer";
 import { AddToPlaylistModal } from "./addToPlaylistModal";
 import { CreatePlaylistModal } from "./createPlaylistModal";
 import { usePlaylist } from "@/lib/playlistContext";
+import { useAuth } from "@/lib/authContext";
 
 export const NavBar = () => {
   const { currentTrack, isPlaying, pause, resume, currentTime, duration, seek } = usePlayer();
   const { createPlaylist, isTrackInAnyPlaylist } = usePlaylist();
+  const { user, isAuthenticated } = useAuth();
   
   // Vérifier si la track actuelle est dans une playlist
   const isCurrentTrackSaved = currentTrack ? isTrackInAnyPlaylist(currentTrack.id) : false;
