@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --white: #FDFCFD;
+  --white: #fdfcfd;
   --black: #020202;
-  --brown: #342E1B;
-  --yellow: #FEE594;
+  --brown: #342e1b;
+  --yellow: #fee594;
 
-  --background-purple: #744DE5;
+  --background-purple: #744de5;
   --background-yellow: var(--yellow);
   --background-white: var(--white);
   --background-brown: var(--brown);
@@ -14,18 +14,17 @@
   --text-color: var(--white);
   --foreground: #171717;
 
-  --button-color-yellow: #FBDB5C;
+  --button-color-yellow: #fbdb5c;
   --button-color-brown: var(--brown);
-  --bg-navbar-color: var(--brown); 
+  --bg-navbar-color: var(--brown);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-
 }
 
 body {
@@ -36,7 +35,7 @@ body {
 
 /* -- CSS pour l'Input Range -- */
 .range-player-custom {
-  background: transparent; 
+  background: transparent;
   padding: 0;
   margin: 0;
 }
@@ -65,7 +64,7 @@ body {
   border-radius: 50%;
   background: #f59e0b; /* amber-500 (Le point jaune) */
   cursor: pointer;
-  margin-top: -2px; 
+  margin-top: -2px;
 }
 
 /* Curseur (Thumb) pour Firefox */
@@ -75,5 +74,14 @@ body {
   border-radius: 50%;
   background: #f59e0b; /* amber-500 */
   cursor: pointer;
-  border: none; 
+  border: none;
+}
+
+/* -- Utilitaires -- */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
