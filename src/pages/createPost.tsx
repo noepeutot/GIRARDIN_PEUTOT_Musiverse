@@ -2,8 +2,11 @@ import { X } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import CreatePostTools from '@/ui/createPostTools'
+import { useState } from 'react'
 
 export default function CreatePost() {
+  const [mode, setMode] = useState("compact");
+
   return (
     <main className='h-screen flex flex-col gap-y-2 bg-(--background-white)'>
       {/* Header de la page */}
@@ -17,7 +20,7 @@ export default function CreatePost() {
         </button>
       </header>
       {/* Contenu principal */}
-      <div className='px-4 py-2 flex flex-col flex-grow gap-y-4'>
+      <div onClick={() => setMode('compact')} className='px-4 py-2 flex flex-col flex-grow gap-y-4'>
         <header className='flex items-center gap-x-2 font-bold'>
           <Image
             src="/photoProfil.png"
@@ -33,7 +36,7 @@ export default function CreatePost() {
           placeholder="Quoi de neuf ?"
         />
       </div>
-      <CreatePostTools />
+      <CreatePostTools mode={mode} setMode={setMode}/>
     </main>
   )
 }
