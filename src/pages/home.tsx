@@ -4,7 +4,7 @@ import Link from "next/link";
 import { NavBar } from "@/ui/navBar";
 import { Post } from "@/ui/post";
 import { PageHeader } from "@/ui/PageHeader";
-import { getPopularArtists } from "@/lib/jamendoApi";
+import { getPopularArtists, getPopularTracks } from "@/lib/jamendoApi";
 import { JamendoArtist } from "@/lib/types";
 import { generateRandomPosts, generateNewerPosts, GeneratedPost, getUserPosts } from "@/lib/feedUtils";
 import { usePlayer } from "@/lib/playerContext";
@@ -68,8 +68,19 @@ export default function Home() {
         const popularArtists = await getPopularArtists(30);
         setArtists(popularArtists);
         
-        // Générer les premiers posts aléatoires
-        const randomPosts = generateRandomPosts(popularArtists, 10);
+        // Charger aussi des tracks pour les attacher à certains posts
+        const popularTracks = await getPopularTracks(15);
+        const tracksForPosts = popularTracks.map(t => ({
+          id: t.id,
+          name: t.name,
+          artist_name: t.artist_name,
+          artist_id: t.artist_id,
+          image: t.album_image || t.image || '/albumCoverExample.png',
+          audio: t.audio,
+        }));
+        
+        // Générer les premiers posts aléatoires (avec tracks attachées aléatoirement)
+        const randomPosts = generateRandomPosts(popularArtists, 10, new Set(), tracksForPosts);
         
         // Récupérer les posts utilisateur de localStorage
         const userPosts = getUserPosts();

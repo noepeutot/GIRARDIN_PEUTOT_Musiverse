@@ -41,12 +41,14 @@ const shuffleArray = <T>(array: T[]): T[] => {
  * @param artists Liste des artistes disponibles
  * @param count Nombre de posts à générer
  * @param existingIds Set des IDs de posts déjà affichés (pour éviter les doublons)
+ * @param tracks Liste optionnelle de tracks à attacher aléatoirement
  * @returns Tableau de posts générés
  */
 export const generateRandomPosts = (
   artists: JamendoArtist[],
   count: number,
-  existingIds: Set<string> = new Set()
+  existingIds: Set<string> = new Set(),
+  tracks: Array<{ id: string; name: string; artist_name: string; artist_id: string; image: string; audio: string }> = []
 ): GeneratedPost[] => {
   if (artists.length === 0) return [];
   
@@ -56,9 +58,11 @@ export const generateRandomPosts = (
   // Mélanger les artistes et les contenus
   const shuffledArtists = shuffleArray(artists);
   const shuffledContents = shuffleArray(SAMPLE_POST_CONTENTS);
+  const shuffledTracks = shuffleArray(tracks);
   
   let attempts = 0;
   const maxAttempts = count * 10; // Évite les boucles infinies
+  let trackIndex = 0;
   
   while (posts.length < count && attempts < maxAttempts) {
     attempts++;
@@ -80,6 +84,21 @@ export const generateRandomPosts = (
     
     usedCombinations.add(combinationKey);
     
+    // Attacher une track à environ 30% des posts
+    let attachedTracks: GeneratedPost['attachedTracks'] = undefined;
+    if (shuffledTracks.length > 0 && Math.random() < 0.3 && trackIndex < shuffledTracks.length) {
+      const track = shuffledTracks[trackIndex];
+      attachedTracks = [{
+        id: track.id,
+        name: track.name,
+        artist: track.artist_name,
+        artist_id: track.artist_id,
+        image: track.image,
+        audio: track.audio,
+      }];
+      trackIndex++;
+    }
+    
     posts.push({
       id: postId,
       username: artist.name,
@@ -91,6 +110,7 @@ export const generateRandomPosts = (
       numberLike: 0,    // Sera généré dynamiquement
       numberView: 0,    // Sera généré dynamiquement
       numberReshare: 0,
+      ...(attachedTracks && { attachedTracks }),
     });
   }
   
