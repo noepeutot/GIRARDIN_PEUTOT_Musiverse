@@ -1,48 +1,8 @@
 // Données simulées pour les likes et commentaires
 // Ces données sont générées de manière déterministe basée sur l'ID de la track
 
-// Noms d'utilisateurs samples
-const SAMPLE_USERNAMES = [
-  'MusicLover42', 'BeatMaster', 'SoundWave', 'GrooveKing', 'RhythmQueen',
-  'MelodyHunter', 'VibeChecker', 'HarmonySeeker', 'BassDrop', 'TrackAddict',
-  'SynthWizard', 'DrumBoss', 'ChillVibes_', 'NightOwl🦉', 'SunsetBeats',
-  'UrbanSound', 'RetroFunk', 'ElectroSoul', 'JazzHands', 'IndieDreamer',
-  'LofiLife', 'TechnoTribe', 'DanceFloor', 'AudioPhile', 'StereoLove',
-];
-
-// Commentaires samples
-const SAMPLE_COMMENTS = [
-  "Ce son est incroyable ! 🔥",
-  "En boucle depuis ce matin",
-  "La production est tellement clean",
-  "Qui écoute en 2024 ? 🙋",
-  "Cette mélodie me donne des frissons",
-  "Ajouté à ma playlist direct 💯",
-  "L'artiste mérite plus de reconnaissance",
-  "Ce drop !! 🔥🔥",
-  "Parfait pour le workout",
-  "Les vibes sont incroyables",
-  "Je découvre grâce à Musiverse ❤️",
-  "Cette chanson me rappelle tellement de souvenirs",
-  "La basse est trop bien",
-  "Quelqu'un connaît des sons similaires ?",
-  "Cette track > toutes les autres",
-  "J'adore les paroles de ce morceau",
-  "Masterpiece 🎨",
-  "Le beat est addictif",
-  "En mode repeat depuis 3h",
-  "Cette voix est magique ✨",
-  "Le clip est aussi incroyable",
-  "Top 1 de ma playlist du moment",
-  "Les instruments sont parfaits",
-  "Je suis fan depuis le début 💜",
-  "Ça me met de bonne humeur !",
-  "L'intro est folle 🔊",
-  "Besoin de plus de sons comme ça",
-  "Pure pépite 💎",
-  "La montée en puissance est ouf",
-  "Je recommande à 100%",
-];
+import { SAMPLE_USERNAMES, SAMPLE_COMMENTS } from './sampleData'; 
+import { getArtistImageByIndex } from './artistsCache';
 
 // Générer un hash simple à partir d'un string
 const hashString = (str: string): number => {
@@ -77,15 +37,17 @@ export const formatLikes = (count: number): string => {
 export interface TrackComment {
   id: string;
   username: string;
+  userImage: string;
   text: string;
   timestamp: number; // en minutes (il y a X minutes)
   likes: number;
+  isUserComment?: boolean;
 }
 
 // Générer des commentaires basés sur l'ID de la track
 export const getTrackComments = (trackId: string): TrackComment[] => {
   const hash = hashString(trackId);
-  const numComments = 3 + (hash % 15); // Entre 3 et 17 commentaires
+  const numComments = 8 + (hash % 20); // Entre 8 et 27 commentaires
   
   const comments: TrackComment[] = [];
   
@@ -94,30 +56,35 @@ export const getTrackComments = (trackId: string): TrackComment[] => {
     const usernameIndex = commentHash % SAMPLE_USERNAMES.length;
     const commentIndex = (commentHash * 7) % SAMPLE_COMMENTS.length;
     
+    // Utiliser une photo d'artiste Jamendo
+    const userImage = getArtistImageByIndex(commentHash);
+    
     comments.push({
       id: `${trackId}-comment-${i}`,
       username: SAMPLE_USERNAMES[usernameIndex],
+      userImage,
       text: SAMPLE_COMMENTS[commentIndex],
-      timestamp: 1 + (commentHash % 1440), // Entre 1 min et 24h
-      likes: commentHash % 500,
+      timestamp: 1 + (commentHash % 10080), // Entre 1 min et 7 jours
+      likes: commentHash % 5000, // Jusqu'à 5000 likes
     });
   }
   
   // Ajouter les commentaires utilisateur sauvegardés
   const userComments = getUserComments(trackId);
   
-  // Combiner et trier
+  // Combiner et trier par likes (les plus likés en premier)
   const allComments = [...userComments, ...comments];
   return allComments.sort((a, b) => {
     // Les commentaires utilisateur récents en premier
-    if (a.timestamp === 0 && b.timestamp !== 0) return -1;
-    if (b.timestamp === 0 && a.timestamp !== 0) return 1;
+    if (a.isUserComment && !b.isUserComment) return -1;
+    if (!a.isUserComment && b.isUserComment) return 1;
     return b.likes - a.likes;
   });
 };
 
 // Formater le timestamp
 export const formatTimestamp = (minutes: number): string => {
+  if (minutes === 0) return "à l'instant";
   if (minutes < 60) {
     return `${minutes}min`;
   }
@@ -126,11 +93,16 @@ export const formatTimestamp = (minutes: number): string => {
     return `${hours}h`;
   }
   const days = Math.floor(hours / 24);
-  return `${days}j`;
+  if (days < 7) {
+    return `${days}j`;
+  }
+  const weeks = Math.floor(days / 7);
+  return `${weeks}sem`;
 };
 
 // Clé localStorage pour les commentaires utilisateur
 const USER_COMMENTS_KEY = 'musiverse_user_comments';
+const COMMENT_LIKES_KEY = 'musiverse_comment_likes';
 
 // Récupérer les commentaires utilisateur pour une track
 export const getUserComments = (trackId: string): TrackComment[] => {
@@ -146,13 +118,15 @@ export const getUserComments = (trackId: string): TrackComment[] => {
 };
 
 // Ajouter un commentaire utilisateur
-export const addUserComment = (trackId: string, text: string): TrackComment => {
+export const addUserComment = (trackId: string, text: string, username: string, userImage: string): TrackComment => {
   const newComment: TrackComment = {
     id: `user-${trackId}-${Date.now()}`,
-    username: 'Toi',
+    username: username,
+    userImage: userImage,
     text: text.trim(),
     timestamp: 0, // 0 = à l'instant
     likes: 0,
+    isUserComment: true,
   };
   
   try {
@@ -187,3 +161,37 @@ export const deleteUserComment = (trackId: string, commentId: string): void => {
     console.error('Erreur suppression commentaire:', error);
   }
 };
+
+// Gérer les likes de commentaires
+export const getCommentLikes = (): Set<string> => {
+  try {
+    const saved = localStorage.getItem(COMMENT_LIKES_KEY);
+    if (!saved) return new Set();
+    return new Set(JSON.parse(saved));
+  } catch {
+    return new Set();
+  }
+};
+
+export const toggleCommentLike = (commentId: string): boolean => {
+  try {
+    const likes = getCommentLikes();
+    const isLiked = likes.has(commentId);
+    
+    if (isLiked) {
+      likes.delete(commentId);
+    } else {
+      likes.add(commentId);
+    }
+    
+    localStorage.setItem(COMMENT_LIKES_KEY, JSON.stringify([...likes]));
+    return !isLiked; // Retourne le nouvel état
+  } catch {
+    return false;
+  }
+};
+
+export const isCommentLiked = (commentId: string): boolean => {
+  return getCommentLikes().has(commentId);
+};
+

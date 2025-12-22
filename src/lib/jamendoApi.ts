@@ -89,7 +89,6 @@ export async function getTracksByArtist(artistName: string, limit: number = 20):
     order: 'popularity_total',
     imagesize: '300',
   });
-  console.log(response.results);
   return response.results;
 }
 
@@ -203,7 +202,7 @@ export async function getPopularArtists(limit: number = 20): Promise<JamendoArti
  */
 export async function searchArtists(query: string, limit: number = 20): Promise<JamendoArtist[]> {
   const response = await jamendoFetch<JamendoArtist>('/artists/', {
-    search: query,
+    namesearch: query,
     limit: limit.toString(),
     imagesize: '300',
   });

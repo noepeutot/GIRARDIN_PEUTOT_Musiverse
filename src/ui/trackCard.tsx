@@ -1,6 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
-import { Play, Pause, MoreVertical } from 'lucide-react';
+import { Play, Pause, Plus } from 'lucide-react';
 import { JamendoTrack } from '@/lib/types';
 import { usePlayer } from '@/lib/playerContext';
 import { formatDuration } from '@/lib/jamendoApi';
@@ -13,7 +13,7 @@ interface TrackCardProps {
 }
 
 export function TrackCard({ track, showAlbum = true, index, onAddToPlaylist }: TrackCardProps) {
-  const { play, pause, currentTrack, isPlaying } = usePlayer();
+  const { playTrack, pause, currentTrack, isPlaying } = usePlayer();
   
   const isCurrentTrack = currentTrack?.id === track.id;
   const isCurrentlyPlaying = isCurrentTrack && isPlaying;
@@ -22,7 +22,7 @@ export function TrackCard({ track, showAlbum = true, index, onAddToPlaylist }: T
     if (isCurrentlyPlaying) {
       pause();
     } else {
-      play(track);
+      playTrack(track);
     }
   };
 
@@ -79,16 +79,17 @@ export function TrackCard({ track, showAlbum = true, index, onAddToPlaylist }: T
         {formatDuration(track.duration)}
       </span>
 
-      {/* Bouton menu */}
+      {/* Bouton ajouter */}
       {onAddToPlaylist && (
         <button
           onClick={(e) => {
             e.stopPropagation();
             onAddToPlaylist();
           }}
-          className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-white/10 transition-all"
+          className="w-7 h-7 rounded-full border-2 border-gray-500 text-gray-500 hover:border-(--yellow) hover:text-(--yellow) flex items-center justify-center transition-colors flex-shrink-0"
+          title="Ajouter à une playlist"
         >
-          <MoreVertical size={16} className="text-gray-400" />
+          <Plus size={14} />
         </button>
       )}
     </div>

@@ -1,14 +1,16 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
-import { ChevronLeft, MoreVertical } from 'lucide-react';
+import { Plus, Check } from 'lucide-react';
 import { NavBar } from '@/ui/navBar';
+import { PageHeader } from '@/ui/PageHeader';
 import { AddToPlaylistModal } from '@/ui/addToPlaylistModal';
 import { CreatePlaylistModal } from '@/ui/createPlaylistModal';
 import { JamendoTrack } from '@/lib/types';
 import { getPopularTracks, getTracksByArtist, formatDuration } from '@/lib/jamendoApi';
 import { usePlayer } from '@/lib/playerContext';
 import { usePlaylist, FAVORITES_PLAYLIST_ID } from '@/lib/playlistContext';
+import { useBodyTheme } from '@/lib/useBodyTheme';
 
 // Clé localStorage pour le cache des recommandations
 const RECOMMENDATIONS_CACHE_KEY = 'musiverse_recommendations';
@@ -59,6 +61,9 @@ export default function ForYouPage() {
 
   const { playTrack, currentTrack, isPlaying } = usePlayer();
   const { playlists, createPlaylist } = usePlaylist();
+
+  // Appliquer le thème dark sur body pour le gradient étendu
+  useBodyTheme('dark');
 
   // Récupérer les titres likés
   const likedTracks = useMemo(() => {
@@ -161,24 +166,18 @@ export default function ForYouPage() {
     setShowAddToPlaylist(true);
   };
 
+  // Vérifier si un track est dans n'importe quelle playlist
+  const isTrackInAnyPlaylist = useCallback((trackId: string) => {
+    return playlists.some(p => p.tracks.some(t => t.id === trackId));
+  }, [playlists]);
+
   const bottomPadding = currentTrack ? 'pb-36' : 'pb-24';
 
   return (
-    <main className={`flex flex-col min-h-screen ${bottomPadding} bg-gradient-to-b from-[#2a2518] via-[#1a1610] to-[#0d0b08]`}>
-      {/* Header */}
-      <header className="sticky top-0 z-30 px-4 py-4 bg-[#2a2518]/80 backdrop-blur-lg">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => router.back()}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
-          >
-            <ChevronLeft size={24} className="text-(--text-color)" />
-          </button>
-          <h1 className="font-bold text-xl text-(--text-color)">Pour Toi</h1>
-        </div>
-      </header>
+    <main className={`flex flex-col min-h-screen ${bottomPadding}`}>
+      <PageHeader title="Pour Toi" showBack variant="dark" />
 
-      <div className="flex-grow px-4">
+      <div className="flex-grow px-4 pt-4">
         {/* Info sur les recommandations */}
         {likedArtists.length > 0 && (
           <p className="text-sm text-gray-400 mb-4">
@@ -203,7 +202,9 @@ export default function ForYouPage() {
               return (
                 <div 
                   key={track.id}
-                  className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-white/5 transition-colors group"
+                  className={`flex items-center gap-3 py-2 px-2 rounded-lg transition-colors group ${
+                    isCurrentTrack ? 'bg-(--yellow)/20' : 'hover:bg-white/5'
+                  }`}
                 >
                   {/* Numéro ou indicateur */}
                   <div className="w-8 text-center">
@@ -246,12 +247,19 @@ export default function ForYouPage() {
                   </div>
 
                   {/* Actions */}
-                  <button
-                    onClick={() => handleAddToPlaylist(track)}
-                    className="p-2 opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded-full transition-all"
-                  >
-                    <MoreVertical size={16} className="text-gray-400" />
-                  </button>
+                  {isTrackInAnyPlaylist(track.id) ? (
+                    <div className="w-7 h-7 rounded-full bg-(--yellow) flex items-center justify-center flex-shrink-0" title="Déjà dans une playlist">
+                      <Check size={14} className="text-(--background-brown)" />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleAddToPlaylist(track)}
+                      className="w-7 h-7 rounded-full border-2 border-gray-500 text-gray-500 hover:border-(--yellow) hover:text-(--yellow) flex items-center justify-center transition-colors flex-shrink-0"
+                      title="Ajouter à une playlist"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  )}
                 </div>
               );
             })}

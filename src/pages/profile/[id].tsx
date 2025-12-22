@@ -1,14 +1,18 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
-import { ChevronLeft, Play, Music2, MessageCircle, ListMusic, User } from 'lucide-react';
+import { Play, Music2, MessageCircle, ListMusic, User, Plus } from 'lucide-react';
 import { NavBar } from '@/ui/navBar';
+import { PageHeader } from '@/ui/PageHeader';
 import { Post } from '@/ui/post';
 import { PostType } from '@/pages/home';
 import { AlbumCard } from '@/ui/albumCard';
+import { AddToPlaylistModal } from '@/ui/addToPlaylistModal';
 import { JamendoTrack, JamendoArtist, JamendoAlbum } from '@/lib/types';
-import { getArtistById, getArtistTracksById, getArtistAlbums, formatDuration } from '@/lib/jamendoApi';
+import { getArtistById, getArtistTracksById, getArtistAlbums, formatDuration, getAlbumTracks } from '@/lib/jamendoApi';
 import { usePlayer } from '@/lib/playerContext';
+import { useFollow } from '@/lib/followContext';
+import { SAMPLE_POST_CONTENTS } from '@/lib/sampleData';
 
 export default function ArtistProfilePage() {
   const router = useRouter();
@@ -19,8 +23,14 @@ export default function ArtistProfilePage() {
   const [albums, setAlbums] = useState<JamendoAlbum[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'feed' | 'music' | 'albums'>('feed');
+  const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState<JamendoTrack | null>(null);
   
   const { playTrack, currentTrack, isPlaying, pause, resume } = usePlayer();
+  const { isFollowing, followUser, unfollowUser } = useFollow();
+
+  // Vérifier si on suit cet artiste
+  const isArtistFollowed = artist ? isFollowing(artist.id) : false;
 
   // Statistiques simulées mais constantes basées sur l'ID de l'artiste
   const { followers, following } = useMemo(() => {
@@ -56,51 +66,52 @@ export default function ArtistProfilePage() {
 
   const handlePlayTrack = (track: JamendoTrack) => {
     if (currentTrack?.id === track.id) {
-      if (isPlaying) {
-        pause();
-      } else {
-        resume();
-      }
-      return;
+      if (isPlaying) pause();
+      else resume();
+    } else {
+      playTrack(track, tracks, artist?.id);
     }
-    playTrack(track, tracks);
   };
 
   const handlePlayAll = () => {
     if (tracks.length > 0) {
-      if (currentTrack?.id === tracks[0].id) {
-        if (isPlaying) {
-          pause();
-        } else {
-          resume();
-        }
-        return;
-      }
-      playTrack(tracks[0], tracks);
+      playTrack(tracks[0], tracks, artist?.id);
     }
   };
 
-  // Générer des posts simulés pour l'artiste
+  // Handler pour jouer un album
+  const handlePlayAlbum = async (album: JamendoAlbum) => {
+    try {
+      const albumTracks = await getAlbumTracks(album.id);
+      if (albumTracks.length > 0) {
+        playTrack(albumTracks[0], albumTracks, album.id);
+      }
+    } catch (error) {
+      console.error('Error loading album tracks:', error);
+    }
+  };
+
+  // Générer des posts simulés pour l'artiste (10 posts)
   const artistPosts = useMemo((): PostType[] => {
     if (!artist) return [];
     const seed = parseInt(artist.id) || 12345;
+    const numPosts = 10;
     
-    const postContents = [
-      "🎵 Nouvelle musique en préparation ! Restez connectés pour des surprises à venir...",
-      "Merci à tous pour votre soutien incroyable ! Votre énergie me motive chaque jour. ❤️",
-      "Session studio terminée ! Hâte de vous partager ce nouveau projet. 🎧✨",
-    ];
-    
-    return postContents.map((content, i) => ({
-      username: artist.name,
-      datePosted: new Date(Date.now() - (i + 1) * 2 * 24 * 60 * 60 * 1000),
-      content,
-      numberComment: 1000 + ((seed * (i + 1) * 3) % 9000),
-      numberLike: 5000 + ((seed * (i + 1) * 7) % 45000),
-      numberView: 50000 + ((seed * (i + 1) * 11) % 950000),
-      numberReshare: 500 + ((seed * (i + 1) * 5) % 4500),
-      artistImage: artist.image,
-    }));
+    return Array.from({ length: numPosts }, (_, i) => {
+      const contentIndex = (seed + i * 3) % SAMPLE_POST_CONTENTS.length;
+      const hoursAgo = (i + 1) * 4 + ((seed * i) % 20);
+      
+      return {
+        username: artist.name,
+        datePosted: new Date(Date.now() - hoursAgo * 60 * 60 * 1000),
+        content: SAMPLE_POST_CONTENTS[contentIndex],
+        numberComment: 1000 + ((seed * (i + 1) * 3) % 9000),
+        numberLike: 5000 + ((seed * (i + 1) * 7) % 45000),
+        numberView: 50000 + ((seed * (i + 1) * 11) % 950000),
+        numberReshare: 500 + ((seed * (i + 1) * 5) % 4500),
+        artistImage: artist.image,
+      };
+    });
   }, [artist]);
 
   const formatNumber = (num: number) => {
@@ -140,24 +151,13 @@ export default function ArtistProfilePage() {
   }
 
   return (
-    <main className={`flex flex-col min-h-screen ${bottomPadding} bg-white`}>
-      {/* Header */}
-      <header className="sticky top-0 z-30 px-4 py-4 bg-white border-b border-gray-200">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => router.back()}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <ChevronLeft size={24} className="text-gray-800" />
-          </button>
-          <h1 className="font-bold text-lg text-gray-900 truncate">{artist.name}</h1>
-        </div>
-      </header>
+    <main className={`flex flex-col min-h-screen ${bottomPadding}`}>
+      <PageHeader title={artist.name} showBack />
 
       {/* Profile Header */}
       <div className="px-4 py-6 flex flex-col items-center">
         {/* Avatar */}
-        <div className="relative w-24 h-24 rounded-full overflow-hidden mb-4 border-3 border-(--yellow) shadow-lg">
+        <div className="relative w-24 h-24 rounded-full overflow-hidden mb-4 shadow-lg">
           {artist.image ? (
             <Image
               src={artist.image}
@@ -165,7 +165,6 @@ export default function ArtistProfilePage() {
               fill
               sizes="96px"
               className="object-cover"
-              priority
             />
           ) : (
             <div className="w-full h-full bg-gray-100 flex items-center justify-center">
@@ -194,8 +193,27 @@ export default function ArtistProfilePage() {
         </div>
 
         {/* Follow Button */}
-        <button className="px-8 py-2 bg-(--brown) text-(--text-color) font-semibold rounded-full hover:opacity-90 transition-opacity">
-          Suivre
+        <button 
+          onClick={() => {
+            if (!artist) return;
+            if (isArtistFollowed) {
+              unfollowUser(artist.id);
+            } else {
+              followUser({
+                id: artist.id,
+                name: artist.name,
+                image: artist.image,
+                isArtist: true,
+              });
+            }
+          }}
+          className={`px-8 py-2 font-semibold rounded-full transition-all ${
+            isArtistFollowed 
+              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
+              : 'bg-(--brown) text-(--text-color) hover:opacity-90'
+          }`}
+        >
+          {isArtistFollowed ? 'Déjà suivi' : 'Suivre'}
         </button>
       </div>
 
@@ -237,10 +255,10 @@ export default function ArtistProfilePage() {
       </div>
 
       {/* Content */}
-      <div className="flex-grow px-4 py-4">
+      <div className="flex-1">
         {activeTab === 'feed' && (
           /* Feed Tab */
-          <div className="flex flex-col gap-y-3">
+          <div className="px-4 py-4 flex flex-col gap-3">
             {artistPosts.map((post, index) => (
               <Post key={index} post={post} hideSubscribe />
             ))}
@@ -248,7 +266,7 @@ export default function ArtistProfilePage() {
         )}
 
         {activeTab === 'music' && (
-          <div>
+          <div className="px-4 py-4">
             {/* Play All Button */}
             {tracks.length > 0 && (
               <button
@@ -266,45 +284,59 @@ export default function ArtistProfilePage() {
                 const isCurrentTrack = currentTrack?.id === track.id;
                 
                 return (
-                  <button
-                    key={track.id}
-                    onClick={() => handlePlayTrack(track)}
-                    className="w-full flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                  >
-                    {/* Numéro ou indicateur */}
-                    <div className="w-8 text-center">
-                      {isCurrentTrack && isPlaying ? (
-                        <div className="flex items-center justify-center gap-0.5">
-                          <span className="w-0.5 h-3 bg-(--brown) rounded-full animate-pulse" />
-                          <span className="w-0.5 h-4 bg-(--brown) rounded-full animate-pulse delay-75" />
-                          <span className="w-0.5 h-2 bg-(--brown) rounded-full animate-pulse delay-150" />
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">{index + 1}</span>
-                      )}
-                    </div>
+                  <div key={track.id} className="flex items-center gap-2">
+                    <button
+                      onClick={() => handlePlayTrack(track)}
+                      className="flex-1 flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                    >
+                      {/* Numéro ou indicateur */}
+                      <div className="w-8 text-center">
+                        {isCurrentTrack && isPlaying ? (
+                          <div className="flex items-center justify-center gap-0.5">
+                            <span className="w-0.5 h-3 bg-(--brown) rounded-full animate-pulse" />
+                            <span className="w-0.5 h-4 bg-(--brown) rounded-full animate-pulse delay-75" />
+                            <span className="w-0.5 h-2 bg-(--brown) rounded-full animate-pulse delay-150" />
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">{index + 1}</span>
+                        )}
+                      </div>
 
-                    {/* Cover */}
-                    <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                      <Image
-                        src={track.album_image || track.image || '/albumCoverExample.png'}
-                        alt={track.name}
-                        fill
-                        sizes="48px"
-                        className="object-cover"
-                      />
-                    </div>
+                      {/* Cover */}
+                      <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                        <Image
+                          src={track.album_image || track.image || '/albumCoverExample.png'}
+                          alt={track.name}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                        />
+                      </div>
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${isCurrentTrack ? 'text-(--brown)' : 'text-gray-900'}`}>
-                        {track.name}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {track.album_name} • {formatDuration(track.duration)}
-                      </p>
-                    </div>
-                  </button>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${isCurrentTrack ? 'text-(--brown)' : 'text-gray-900'}`}>
+                          {track.name}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {track.album_name} • {formatDuration(track.duration)}
+                        </p>
+                      </div>
+                    </button>
+                    
+                    {/* Bouton ajouter à la playlist */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedTrack(track);
+                        setShowAddToPlaylist(true);
+                      }}
+                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                      title="Ajouter à une playlist"
+                    >
+                      <Plus size={20} className="text-gray-500" />
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -319,12 +351,24 @@ export default function ArtistProfilePage() {
         )}
 
         {activeTab === 'albums' && (
-          <div>
+          <div className="px-4 py-4">
             {albums.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
-                {albums.map((album) => (
-                  <AlbumCard key={album.id} album={album} />
-                ))}
+              <div className="flex flex-wrap justify-center gap-4">
+                {albums.map((album) => {
+                  const isCurrentAlbum = currentTrack && tracks.some(t => t.id === currentTrack.id) && currentTrack.album_id === album.id;
+                  
+                  return (
+                    <AlbumCard 
+                      key={album.id} 
+                      album={album}
+                      variant="light"
+                      isCurrentlyPlaying={!!isCurrentAlbum}
+                      isPlaying={isPlaying && !!isCurrentAlbum}
+                      onPlay={() => handlePlayAlbum(album)}
+                      onPause={() => pause()}
+                    />
+                  );
+                })}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -338,6 +382,22 @@ export default function ArtistProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Modal AddToPlaylist */}
+      {selectedTrack && (
+        <AddToPlaylistModal
+          isOpen={showAddToPlaylist}
+          onClose={() => {
+            setShowAddToPlaylist(false);
+            setSelectedTrack(null);
+          }}
+          track={selectedTrack}
+          onCreateNew={() => {
+            setShowAddToPlaylist(false);
+            router.push('/music');
+          }}
+        />
+      )}
 
       <NavBar />
     </main>

@@ -17,6 +17,9 @@
   --button-color-yellow: #fbdb5c;
   --button-color-brown: var(--brown);
   --bg-navbar-color: var(--brown);
+
+  /* Largeur max du contenu (style Twitter/X) */
+  --app-max-width: 600px;
 }
 
 @theme inline {
@@ -27,10 +30,34 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* -- Layout principal style Twitter -- */
+html {
+  height: 100%;
+}
+
 body {
+  min-height: 100%;
   color: var(--foreground);
-  background-color: var(--background-white);
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  overflow-y: auto; /* Scroll sur body, style Twitter */
+  background-color: var(--background-white); /* Défaut: fond blanc */
+  transition: background 0.2s ease;
+}
+
+/* Thème dark pour les pages music - fond gradient sur body entier */
+body.theme-dark {
+  background: linear-gradient(to bottom, #2a2518, #1a1610, #0d0b08);
+  background-attachment: fixed; /* Le gradient reste fixe au scroll */
+}
+
+/* Contenu principal avec largeur max - centré avec margin auto */
+.app-content {
+  width: 100%;
+  max-width: var(--app-max-width);
+  min-height: 100vh;
+  margin: 0 auto; /* Centre le contenu */
+  position: relative;
 }
 
 /* -- CSS pour l'Input Range -- */
@@ -84,4 +111,27 @@ body {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* -- NavBar et éléments fixed centrés -- */
+.navbar-fixed-container {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px); /* Marge de 16px de chaque côté */
+  max-width: calc(var(--app-max-width) - 32px);
+  z-index: 50;
+}
+
+/* -- FullScreen Player centré -- */
+.fullscreen-player-container {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--app-max-width);
+  height: 100vh;
+  z-index: 100;
 }

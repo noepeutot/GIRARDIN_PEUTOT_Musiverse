@@ -1,6 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { SAMPLE_USERNAMES, SAMPLE_COMMENTS } from './sampleData';
+import { getArtistImageByIndex } from './artistsCache';
 
 // Types
 export interface Comment {
@@ -10,49 +12,80 @@ export interface Comment {
   userImage: string;
   content: string;
   createdAt: Date;
+  likes: number;
 }
 
 interface SocialContextType {
   likedPosts: Set<string>;
   comments: Map<string, Comment[]>;
+  likedComments: Set<string>;
   isPostLiked: (postId: string) => boolean;
   toggleLike: (postId: string) => void;
   getComments: (postId: string) => Comment[];
   addComment: (postId: string, content: string, username: string, userImage: string) => void;
+  isCommentLiked: (commentId: string) => boolean;
+  toggleCommentLike: (commentId: string) => void;
 }
 
 const SocialContext = createContext<SocialContextType | undefined>(undefined);
 
 const LIKES_STORAGE_KEY = 'musiverse_liked_posts';
 const COMMENTS_STORAGE_KEY = 'musiverse_comments';
+const COMMENT_LIKES_STORAGE_KEY = 'musiverse_liked_comments';
 
-// Commentaires simulés par défaut
-const defaultComments: Comment[] = [
-  {
-    id: 'comment_1',
-    postId: 'default',
-    username: 'MusicLover',
-    userImage: '/photoProfil.png',
-    content: 'Super post ! 🔥',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-  },
-  {
-    id: 'comment_2',
-    postId: 'default',
-    username: 'JazzFan',
-    userImage: '/photoProfil.png',
-    content: 'J\'adore cette musique !',
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-  },
-  {
-    id: 'comment_3',
-    postId: 'default',
-    username: 'BeatMaker',
-    userImage: '/photoProfil.png',
-    content: 'Incroyable, continue comme ça 👏',
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-  },
-];
+// Générer un hash simple à partir d'un string
+const hashString = (str: string): number => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+};
+
+// Générer un nombre de likes basé sur le postId
+export const getPostLikes = (postId: string): number => {
+  const hash = hashString(postId);
+  // Génère un nombre entre 500 et 50000
+  return 500 + (hash % 49500);
+};
+
+// Générer un nombre de vues basé sur le postId
+export const getPostViews = (postId: string): number => {
+  const hash = hashString(postId + '_views');
+  // Génère un nombre entre 5000 et 500000
+  return 5000 + (hash % 495000);
+};
+
+// Générer des commentaires aléatoires simples (appelé côté client uniquement)
+const generateRandomComments = (postId: string): Comment[] => {
+  const numComments = 10 + Math.floor(Math.random() * 40); // Entre 10 et 50 commentaires
+  const comments: Comment[] = [];
+  
+  for (let i = 0; i < numComments; i++) {
+    const randomUsername = SAMPLE_USERNAMES[Math.floor(Math.random() * SAMPLE_USERNAMES.length)];
+    const randomContent = SAMPLE_COMMENTS[Math.floor(Math.random() * SAMPLE_COMMENTS.length)];
+    const hoursAgo = 1 + Math.floor(Math.random() * 48); // Entre 1h et 48h
+    
+    // Utiliser une photo d'artiste Jamendo
+    const userImage = getArtistImageByIndex(i + hashString(postId));
+    
+    comments.push({
+      id: `${postId}-comment-${i}-${Date.now()}`,
+      postId: postId,
+      username: randomUsername,
+      userImage,
+      content: randomContent,
+      createdAt: new Date(Date.now() - hoursAgo * 60 * 60 * 1000),
+      likes: Math.floor(Math.random() * 100),
+    });
+  }
+  
+  // Trier par date (plus récent en premier)
+  return comments.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+};
+
 
 interface SocialProviderProps {
   children: ReactNode;
@@ -61,6 +94,7 @@ interface SocialProviderProps {
 export function SocialProvider({ children }: SocialProviderProps) {
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [comments, setComments] = useState<Map<string, Comment[]>>(new Map());
+  const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Charger depuis localStorage au démarrage
@@ -79,9 +113,15 @@ export function SocialProvider({ children }: SocialProviderProps) {
           commentsMap.set(postId, (postComments as Comment[]).map(c => ({
             ...c,
             createdAt: new Date(c.createdAt),
+            likes: c.likes || 0,
           })));
         });
         setComments(commentsMap);
+      }
+
+      const storedCommentLikes = localStorage.getItem(COMMENT_LIKES_STORAGE_KEY);
+      if (storedCommentLikes) {
+        setLikedComments(new Set(JSON.parse(storedCommentLikes)));
       }
     } catch (error) {
       console.error('Erreur lors du chargement des données sociales:', error);
@@ -108,6 +148,13 @@ export function SocialProvider({ children }: SocialProviderProps) {
     }
   }, [comments, isLoaded]);
 
+  // Sauvegarder les likes de commentaires
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem(COMMENT_LIKES_STORAGE_KEY, JSON.stringify([...likedComments]));
+    }
+  }, [likedComments, isLoaded]);
+
   const isPostLiked = useCallback((postId: string): boolean => {
     return likedPosts.has(postId);
   }, [likedPosts]);
@@ -126,9 +173,9 @@ export function SocialProvider({ children }: SocialProviderProps) {
 
   const getComments = useCallback((postId: string): Comment[] => {
     const postComments = comments.get(postId) || [];
-    // Ajouter des commentaires simulés si aucun commentaire
+    // Ajouter des commentaires simulés si aucun commentaire utilisateur
     if (postComments.length === 0) {
-      return defaultComments.map(c => ({ ...c, postId }));
+      return generateRandomComments(postId);
     }
     return postComments;
   }, [comments]);
@@ -141,23 +188,43 @@ export function SocialProvider({ children }: SocialProviderProps) {
       userImage,
       content,
       createdAt: new Date(),
+      likes: 0,
     };
 
     setComments(prev => {
       const newMap = new Map(prev);
-      const existing = newMap.get(postId) || defaultComments.map(c => ({ ...c, postId }));
+      const existing = newMap.get(postId) || generateRandomComments(postId);
       newMap.set(postId, [newComment, ...existing]);
       return newMap;
+    });
+  }, []);
+
+  const isCommentLiked = useCallback((commentId: string): boolean => {
+    return likedComments.has(commentId);
+  }, [likedComments]);
+
+  const toggleCommentLike = useCallback((commentId: string) => {
+    setLikedComments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(commentId)) {
+        newSet.delete(commentId);
+      } else {
+        newSet.add(commentId);
+      }
+      return newSet;
     });
   }, []);
 
   const value: SocialContextType = {
     likedPosts,
     comments,
+    likedComments,
     isPostLiked,
     toggleLike,
     getComments,
     addComment,
+    isCommentLiked,
+    toggleCommentLike,
   };
 
   return (

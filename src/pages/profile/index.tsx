@@ -2,22 +2,48 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronLeft, Music2, MessageCircle, ListMusic, LogOut, Settings } from 'lucide-react';
+import { Music2, MessageCircle, ListMusic, Settings } from 'lucide-react';
 import { NavBar } from '@/ui/navBar';
 import { Post } from '@/ui/post';
 import { PostType } from '@/pages/home';
 import { PlaylistCard } from '@/ui/playlistCard';
+import { PageHeader } from '@/ui/PageHeader';
+import { FollowersModal } from '@/ui/FollowersModal';
+import { EditProfileModal } from '@/ui/EditProfileModal';
 import { usePlayer } from '@/lib/playerContext';
 import { useAuth } from '@/lib/authContext';
 import { usePlaylist } from '@/lib/playlistContext';
+import { useFollow } from '@/lib/followContext';
+import { SAMPLE_POST_CONTENTS } from '@/lib/sampleData';
 
 export default function UserProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
-  const { currentTrack } = usePlayer();
+  const { user, isAuthenticated, isLoading, updateProfile } = useAuth();
+  const { currentTrack, playTrack, isPlaying, pause, currentSourceId } = usePlayer();
   const { playlists } = usePlaylist();
+  const { followingCount, followersCount } = useFollow();
   
   const [activeTab, setActiveTab] = useState<'feed' | 'music' | 'playlists'>('feed');
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [followModalMode, setFollowModalMode] = useState<'followers' | 'following'>('followers');
+  const [showEditProfile, setShowEditProfile] = useState(false);
+
+  // Lire le tab depuis l'URL au chargement
+  useEffect(() => {
+    const tabFromUrl = router.query.tab;
+    if (tabFromUrl === 'music' || tabFromUrl === 'playlists' || tabFromUrl === 'feed') {
+      setActiveTab(tabFromUrl);
+    }
+  }, [router.query.tab]);
+
+  // Fonction pour changer de tab et mettre à jour l'URL
+  const handleTabChange = (tab: 'feed' | 'music' | 'playlists') => {
+    setActiveTab(tab);
+    router.replace({
+      pathname: router.pathname,
+      query: { ...router.query, tab }
+    }, undefined, { shallow: true });
+  };
 
   // Rediriger si non connecté
   useEffect(() => {
@@ -26,28 +52,28 @@ export default function UserProfilePage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Générer des posts simulés pour l'utilisateur
+  // Générer des posts simulés pour l'utilisateur (8 posts)
   const userPosts = useMemo((): PostType[] => {
     if (!user) return [];
     
-    const postContents = [
-      "🎵 Je viens de découvrir un artiste incroyable sur Musiverse ! Allez écouter ça !",
-      "Ma playlist du moment est en feu 🔥 Qu'est-ce que vous écoutez ?",
-      "Nouvelle semaine, nouvelle musique ! Drop vos recommandations 🎧",
-    ];
-    
     const seed = parseInt(user.id.replace('user_', '')) || 12345;
+    const numPosts = 8;
     
-    return postContents.map((content, i) => ({
-      username: user.displayName,
-      datePosted: new Date(Date.now() - (i + 1) * 24 * 60 * 60 * 1000),
-      content,
-      numberComment: 10 + ((seed * (i + 1) * 3) % 90),
-      numberLike: 50 + ((seed * (i + 1) * 7) % 450),
-      numberView: 500 + ((seed * (i + 1) * 11) % 4500),
-      numberReshare: 5 + ((seed * (i + 1) * 5) % 45),
-      artistImage: user.image,
-    }));
+    return Array.from({ length: numPosts }, (_, i) => {
+      const contentIndex = (seed + i) % SAMPLE_POST_CONTENTS.length;
+      const hoursAgo = (i + 1) * 2 + ((seed * i) % 10);
+      
+      return {
+        username: user.displayName,
+        datePosted: new Date(Date.now() - hoursAgo * 60 * 60 * 1000),
+        content: SAMPLE_POST_CONTENTS[contentIndex],
+        numberComment: 10 + ((seed * (i + 1) * 3) % 90),
+        numberLike: 50 + ((seed * (i + 1) * 7) % 450),
+        numberView: 500 + ((seed * (i + 1) * 11) % 4500),
+        numberReshare: 5 + ((seed * (i + 1) * 5) % 45),
+        artistImage: user.image,
+      };
+    });
   }, [user]);
 
   // Playlists publiques de l'utilisateur (exclure favoris)
@@ -59,11 +85,6 @@ export default function UserProfilePage() {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
     return num.toString();
-  };
-
-  const handleLogout = () => {
-    logout();
-    router.push('/');
   };
 
   const bottomPadding = currentTrack ? 'pb-36' : 'pb-24';
@@ -85,30 +106,8 @@ export default function UserProfilePage() {
   }
 
   return (
-    <main className={`flex flex-col min-h-screen ${bottomPadding} bg-white`}>
-      {/* Header */}
-      <header className="sticky top-0 z-30 px-4 py-4 bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => router.back()}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <ChevronLeft size={24} className="text-gray-800" />
-            </button>
-            <h1 className="font-bold text-lg text-gray-900">Mon Profil</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={handleLogout}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              title="Se déconnecter"
-            >
-              <LogOut size={20} className="text-gray-500" />
-            </button>
-          </div>
-        </div>
-      </header>
+    <main className={`flex flex-col min-h-screen ${bottomPadding}`}>
+      <PageHeader title="Mon Profil" showLogout />
 
       {/* Profile Header */}
       <div className="px-4 py-6 flex flex-col items-center">
@@ -120,7 +119,6 @@ export default function UserProfilePage() {
             fill
             sizes="96px"
             className="object-cover"
-            priority
           />
         </div>
         
@@ -133,14 +131,20 @@ export default function UserProfilePage() {
         
         {/* Stats */}
         <div className="flex gap-8 mb-6">
-          <div className="text-center">
-            <p className="text-lg font-bold text-gray-900">{formatNumber(user.followers)}</p>
+          <button 
+            onClick={() => { setFollowModalMode('followers'); setShowFollowersModal(true); }}
+            className="text-center hover:opacity-70 transition-opacity"
+          >
+            <p className="text-lg font-bold text-gray-900">{formatNumber(followersCount)}</p>
             <p className="text-xs text-gray-500">Abonnés</p>
-          </div>
-          <div className="text-center">
-            <p className="text-lg font-bold text-gray-900">{formatNumber(user.following)}</p>
+          </button>
+          <button 
+            onClick={() => { setFollowModalMode('following'); setShowFollowersModal(true); }}
+            className="text-center hover:opacity-70 transition-opacity"
+          >
+            <p className="text-lg font-bold text-gray-900">{formatNumber(followingCount)}</p>
             <p className="text-xs text-gray-500">Abonnements</p>
-          </div>
+          </button>
           <div className="text-center">
             <p className="text-lg font-bold text-gray-900">{publicPlaylists.length}</p>
             <p className="text-xs text-gray-500">Playlists</p>
@@ -148,7 +152,10 @@ export default function UserProfilePage() {
         </div>
 
         {/* Edit Profile Button */}
-        <button className="px-6 py-2 bg-(--brown) text-(--text-color) font-semibold rounded-full hover:opacity-90 transition-opacity flex items-center gap-2">
+        <button 
+          onClick={() => setShowEditProfile(true)}
+          className="px-6 py-2 bg-(--brown) text-(--text-color) font-semibold rounded-full hover:opacity-90 transition-opacity flex items-center gap-2"
+        >
           <Settings size={16} />
           Modifier le profil
         </button>
@@ -157,7 +164,7 @@ export default function UserProfilePage() {
       {/* Tabs */}
       <div className="flex border-b border-gray-200">
         <button
-          onClick={() => setActiveTab('feed')}
+          onClick={() => handleTabChange('feed')}
           className={`flex-1 py-3 flex items-center justify-center gap-2 font-medium transition-colors ${
             activeTab === 'feed' 
               ? 'text-(--brown) border-b-2 border-(--brown)' 
@@ -168,7 +175,7 @@ export default function UserProfilePage() {
           Feed
         </button>
         <button
-          onClick={() => setActiveTab('music')}
+          onClick={() => handleTabChange('music')}
           className={`flex-1 py-3 flex items-center justify-center gap-2 font-medium transition-colors ${
             activeTab === 'music' 
               ? 'text-(--brown) border-b-2 border-(--brown)' 
@@ -179,7 +186,7 @@ export default function UserProfilePage() {
           Musiques
         </button>
         <button
-          onClick={() => setActiveTab('playlists')}
+          onClick={() => handleTabChange('playlists')}
           className={`flex-1 py-3 flex items-center justify-center gap-2 font-medium transition-colors ${
             activeTab === 'playlists' 
               ? 'text-(--brown) border-b-2 border-(--brown)' 
@@ -192,9 +199,9 @@ export default function UserProfilePage() {
       </div>
 
       {/* Content */}
-      <div className="flex-grow px-4 py-4">
+      <div className="flex-1">
         {activeTab === 'feed' && (
-          <div className="flex flex-col gap-y-3">
+          <div className="px-4 py-4 flex flex-col gap-3">
             {userPosts.map((post, index) => (
               <Post key={index} post={post} hideSubscribe />
             ))}
@@ -204,10 +211,9 @@ export default function UserProfilePage() {
         {activeTab === 'music' && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Music2 size={64} className="text-gray-300 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Pas encore de musique</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Pas encore de musiques</h3>
             <p className="text-gray-500 max-w-xs">
-              Cette section affiche les musiques que tu as produites. 
-              Pour l'instant, tu n'as pas encore publié de titre.
+              Tes musiques préférées apparaîtront ici
             </p>
           </div>
         )}
@@ -215,10 +221,26 @@ export default function UserProfilePage() {
         {activeTab === 'playlists' && (
           <div>
             {publicPlaylists.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
-                {publicPlaylists.map((playlist) => (
-                  <PlaylistCard key={playlist.id} playlist={playlist} />
-                ))}
+              <div className="flex flex-wrap justify-center gap-4">
+                {publicPlaylists.map((playlist) => {
+                  const isCurrentPlaylist = currentSourceId === playlist.id;
+                  
+                  return (
+                    <PlaylistCard 
+                      key={playlist.id} 
+                      playlist={playlist}
+                      variant="light"
+                      isCurrentlyPlaying={isCurrentPlaylist}
+                      isPlaying={isPlaying && isCurrentPlaylist}
+                      onPlay={() => {
+                        if (playlist.tracks.length > 0) {
+                          playTrack(playlist.tracks[0], playlist.tracks, playlist.id);
+                        }
+                      }}
+                      onPause={() => pause()}
+                    />
+                  );
+                })}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -238,6 +260,24 @@ export default function UserProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Modal abonnés/abonnements */}
+      <FollowersModal
+        isOpen={showFollowersModal}
+        onClose={() => setShowFollowersModal(false)}
+        mode={followModalMode}
+        title={followModalMode === 'followers' ? 'Abonnés' : 'Abonnements'}
+      />
+
+      {/* Modal modifier profil */}
+      {user && (
+        <EditProfileModal
+          isOpen={showEditProfile}
+          onClose={() => setShowEditProfile(false)}
+          user={user}
+          onSave={(updates) => updateProfile(updates)}
+        />
+      )}
 
       <NavBar />
     </main>

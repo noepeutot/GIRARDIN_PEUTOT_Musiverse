@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Play, Pause, Plus, Check } from "lucide-react";
+import { Play, Pause, Plus, Check, X } from "lucide-react";
 import { ButtonNavBar } from "./buttonNavBar";
 import { usePlayer } from "@/lib/playerContext";
 import { FullScreenPlayer } from "./fullScreenPlayer";
@@ -21,6 +21,18 @@ export const NavBar = () => {
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
+  
+  // State pour la visibilité du player - persisté dans localStorage
+  const [isPlayerVisible, setIsPlayerVisible] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('musicPlayerVisible');
+      return saved === null ? true : saved === 'true';
+    }
+    return true;
+  });
+
+  // State pour afficher le bouton X après 10s de pause
+  const [showCloseButton, setShowCloseButton] = useState(false);
 
   const handlePlayPause = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -37,6 +49,29 @@ export const NavBar = () => {
       setShowAddToPlaylist(true);
     }
   };
+
+  // Quand une nouvelle track est jouée ET que le player était fermé, le rouvrir
+  React.useEffect(() => {
+    if (currentTrack && isPlaying && !isPlayerVisible) {
+      setIsPlayerVisible(true);
+      localStorage.setItem('musicPlayerVisible', 'true');
+    }
+  }, [currentTrack, isPlaying, isPlayerVisible]);
+
+  // Timer pour afficher le bouton X après 10s de pause
+  React.useEffect(() => {
+    if (!isPlaying && currentTrack) {
+      // Musique en pause, démarrer le timer
+      const timer = setTimeout(() => {
+        setShowCloseButton(true);
+      }, 10000); // 10 secondes
+
+      return () => clearTimeout(timer);
+    } else {
+      // Musique en cours de lecture, cacher le bouton
+      setShowCloseButton(false);
+    }
+  }, [isPlaying, currentTrack]);
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -56,6 +91,13 @@ export const NavBar = () => {
     }
   };
 
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    pause();
+    setIsPlayerVisible(false);
+    localStorage.setItem('musicPlayerVisible', 'false');
+  };
+
   return (
     <>
       {/* Player plein écran */}
@@ -64,16 +106,27 @@ export const NavBar = () => {
         onClose={() => setIsFullScreenOpen(false)} 
       />
 
-      <div className="fixed bottom-0 left-4 right-4 mb-3 z-50">
+      <div className="navbar-fixed-container">
         {/* Container glassmorphism unifié */}
-        <div className="bg-[#3d3525]/80 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+        <div className="relative bg-[#3d3525]/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10">
           
           {/* Mini Player */}
-          {currentTrack && (
+          {currentTrack && isPlayerVisible && (
             <>
+              {/* Bouton Close - En haut à droite, sortant de la navbar - Visible après 10s de pause */}
+              {showCloseButton && (
+                <button 
+                  onClick={handleClose}
+                  className="absolute -top-2 -right-2 w-7 h-7 bg-gray-600/80 hover:bg-gray-500 rounded-full flex items-center justify-center shadow-lg transition-all z-10 text-white"
+                  title="Fermer le lecteur"
+                >
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              )}
+
               {/* Contenu du player */}
               <div 
-                className="flex items-center gap-3 px-4 py-3 cursor-pointer"
+                className="flex items-center gap-3 px-4 py-3 cursor-pointer overflow-hidden rounded-t-2xl"
                 onClick={openFullScreen}
               >
                 {/* Cover */}

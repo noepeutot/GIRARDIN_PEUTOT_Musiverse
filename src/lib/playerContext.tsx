@@ -225,25 +225,29 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     };
   }, [goToNext]);
 
-  // Gérer le changement de track
+  // Gérer le changement de track (ne recharge que si la track change vraiment)
   useEffect(() => {
     if (tracklist.length > 0 && currentIndex < tracklist.length) {
       const track = tracklist[currentIndex];
-      setCurrentTrack(track);
-      addToHistory(track);
+      
+      // Ne mettre à jour que si c'est une nouvelle track
+      if (!currentTrack || currentTrack.id !== track.id) {
+        setCurrentTrack(track);
+        addToHistory(track);
 
-      if (audioRef.current && isPlaying) {
-        const audio = audioRef.current;
-        audio.src = track.audio;
-        audio.load();
-        const playWhenReady = () => {
-          audio.play().catch(() => {});
-          audio.removeEventListener('canplay', playWhenReady);
-        };
-        audio.addEventListener('canplay', playWhenReady);
+        if (audioRef.current && isPlaying) {
+          const audio = audioRef.current;
+          audio.src = track.audio;
+          audio.load();
+          const playWhenReady = () => {
+            audio.play().catch(() => {});
+            audio.removeEventListener('canplay', playWhenReady);
+          };
+          audio.addEventListener('canplay', playWhenReady);
+        }
       }
     }
-  }, [currentIndex, tracklist, addToHistory, isPlaying]);
+  }, [currentIndex, tracklist, addToHistory, isPlaying, currentTrack]);
 
   // Jouer une track (avec ou sans playlist)
   const playTrack = useCallback((track: JamendoTrack, playlistTracks?: JamendoTrack[], sourceId?: string) => {
@@ -281,6 +285,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     setTracklist(newTracklist);
     setCurrentIndex(startIndex);
     setCurrentTrack(track);
+    addToHistory(track); // Mettre à jour l'historique immédiatement
 
     // Lancer la lecture
     const audio = audioRef.current;
@@ -292,7 +297,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     };
     audio.addEventListener('canplay', playWhenReady);
     setIsPlaying(true);
-  }, []);
+  }, [addToHistory]);
 
   const pause = useCallback(() => {
     if (audioRef.current) {

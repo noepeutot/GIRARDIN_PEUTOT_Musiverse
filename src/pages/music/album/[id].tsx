@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { ChevronLeft, Play, Shuffle, Plus } from 'lucide-react';
+import { Play, Shuffle, Plus, Clock } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { NavBar } from '@/ui/navBar';
+import { PageHeader } from '@/ui/PageHeader';
 import { JamendoTrack } from '@/lib/types';
 import { getAlbumTracks, formatDuration } from '@/lib/jamendoApi';
 import { usePlayer } from '@/lib/playerContext';
 import { AddToPlaylistModal } from '@/ui/addToPlaylistModal';
 import { CreatePlaylistModal } from '@/ui/createPlaylistModal';
 import { usePlaylist } from '@/lib/playlistContext';
+import { useBodyTheme } from '@/lib/useBodyTheme';
 
 export default function AlbumPage() {
   const router = useRouter();
@@ -24,6 +26,9 @@ export default function AlbumPage() {
   
   const { playTrack, currentTrack, isPlaying, pause, toggleShuffle, isShuffled, tracklist } = usePlayer();
   const { createPlaylist } = usePlaylist();
+
+  // Appliquer le thème dark sur body pour le gradient étendu
+  useBodyTheme('dark');
 
   const albumInfo = tracks[0];
 
@@ -68,21 +73,11 @@ export default function AlbumPage() {
     setShowAddToPlaylist(true);
   };
 
-  const bottomPadding = currentTrack ? 'pb-36' : 'pb-24';
+  const bottomPadding = currentTrack ? 'pb-44' : 'pb-32';
 
   return (
-    <main className={`flex flex-col min-h-screen ${bottomPadding} bg-gradient-to-b from-[#2a2518] via-[#1a1610] to-[#0d0b08]`}>
-      {/* Header - transparent pour gradient uniforme */}
-      <header className="sticky top-0 z-30 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <button 
-            onClick={() => router.back()}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
-          >
-            <ChevronLeft size={24} className="text-(--text-color)" />
-          </button>
-        </div>
-      </header>
+    <main className={`flex flex-col min-h-screen ${bottomPadding}`}>
+      <PageHeader title="Album" showBack variant="dark" />
 
       <div className="flex-grow">
         {loading ? (
@@ -129,69 +124,91 @@ export default function AlbumPage() {
               <div className="flex gap-3">
                 <button
                   onClick={handlePlayAll}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-(--text-color) text-(--background-brown) rounded-full font-semibold hover:opacity-90 transition-opacity shadow-lg"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-(--yellow) text-(--background-brown) rounded-full font-semibold hover:opacity-90 transition-opacity shadow-lg"
                 >
                   <Play size={20} fill="currentColor" />
-                  Play
+                  Lecture
                 </button>
                 <button 
                   onClick={handleShuffle}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 border-2 rounded-full font-semibold transition-colors ${
-                    isShuffled && tracklist.length > 1 ? 'border-(--yellow) text-(--yellow)' : 'border-gray-500 text-(--text-color) hover:bg-white/5'
+                  className={`flex items-center justify-center px-6 py-3 rounded-full font-semibold transition-colors ${
+                    isShuffled && tracklist.length > 1 ? 'bg-(--yellow) text-(--background-brown)' : 'bg-[#2a2518] text-(--text-color) hover:bg-[#3d3525]'
                   }`}
                 >
                   <Shuffle size={20} />
-                  Shuffle
                 </button>
               </div>
             </div>
 
             {/* Liste des pistes */}
             <div className="px-4">
-              {tracks.map((track, index) => {
-                const isCurrentTrackPlaying = currentTrack?.id === track.id;
+              <div className="space-y-1">
+                {tracks.map((track, index) => {
+                  const isCurrentTrackPlaying = currentTrack?.id === track.id;
 
-                return (
-                  <div 
-                    key={track.id} 
-                    className="flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-white/5 transition-colors group"
-                  >
-                    {/* Numéro ou indicateur de lecture */}
-                    <div className="w-8 text-center">
-                      {isCurrentTrackPlaying && isPlaying ? (
-                        <div className="flex items-center justify-center gap-0.5">
-                          <span className="w-0.5 h-3 bg-(--yellow) rounded-full animate-pulse" />
-                          <span className="w-0.5 h-4 bg-(--yellow) rounded-full animate-pulse delay-75" />
-                          <span className="w-0.5 h-2 bg-(--yellow) rounded-full animate-pulse delay-150" />
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">{(index + 1).toString().padStart(2, '0')}</span>
-                      )}
-                    </div>
-                    
-                    {/* Infos track - cliquable pour jouer */}
+                  return (
                     <div 
-                      className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => handlePlayTrack(track)}
+                      key={track.id} 
+                      className={`flex items-center gap-3 p-3 rounded-lg transition-colors group ${
+                        isCurrentTrackPlaying 
+                          ? 'bg-(--yellow)/20' 
+                          : 'hover:bg-white/5'
+                      }`}
                     >
-                      <p className={`text-sm font-medium truncate ${isCurrentTrackPlaying ? 'text-(--yellow)' : 'text-(--text-color)'}`}>
-                        {track.name}
-                      </p>
-                      <p className="text-xs text-gray-400 truncate">
-                        {track.artist_name} • {formatDuration(track.duration)}
-                      </p>
+                      {/* Numéro ou indicateur de lecture */}
+                      <div className="w-6 text-center flex-shrink-0">
+                        {isCurrentTrackPlaying && isPlaying ? (
+                          <div className="flex items-center justify-center gap-0.5">
+                            <span className="w-0.5 h-3 bg-(--yellow) animate-pulse"></span>
+                            <span className="w-0.5 h-4 bg-(--yellow) animate-pulse delay-75"></span>
+                            <span className="w-0.5 h-2 bg-(--yellow) animate-pulse delay-150"></span>
+                          </div>
+                        ) : (
+                          <span className={`text-sm ${isCurrentTrackPlaying ? 'text-(--yellow)' : 'text-gray-500'}`}>
+                            {index + 1}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Cover */}
+                      <button
+                        onClick={() => handlePlayTrack(track)}
+                        className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0"
+                      >
+                        <Image
+                          src={track.album_image || track.image || '/albumCoverExample.png'}
+                          alt={track.name}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                        />
+                      </button>
+                      
+                      {/* Infos track - cliquable pour jouer */}
+                      <button 
+                        className="flex-grow min-w-0 text-left"
+                        onClick={() => handlePlayTrack(track)}
+                      >
+                        <p className={`font-medium truncate ${isCurrentTrackPlaying ? 'text-(--yellow)' : 'text-(--text-color)'}`}>
+                          {track.name}
+                        </p>
+                        <p className="text-sm text-gray-400 truncate">
+                          {track.artist_name} • {formatDuration(track.duration)}
+                        </p>
+                      </button>
+                      
+                      {/* Bouton ajouter à playlist */}
+                      <button 
+                        onClick={() => handleAddToPlaylist(track)}
+                        className="w-7 h-7 rounded-full border-2 border-gray-500 text-gray-500 hover:border-(--yellow) hover:text-(--yellow) flex items-center justify-center transition-colors flex-shrink-0"
+                        title="Ajouter à une playlist"
+                      >
+                        <Plus size={14} />
+                      </button>
                     </div>
-                    
-                    {/* Bouton ajouter à playlist */}
-                    <button 
-                      onClick={() => handleAddToPlaylist(track)}
-                      className="p-2 opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded-full transition-all"
-                    >
-                      <Plus size={16} className="text-gray-400" />
-                    </button>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </>
         ) : (

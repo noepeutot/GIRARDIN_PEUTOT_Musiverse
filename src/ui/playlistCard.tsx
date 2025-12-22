@@ -147,6 +147,7 @@ interface PlaylistCardProps {
   priority?: boolean;
   isCurrentlyPlaying?: boolean;
   isPlaying?: boolean;
+  variant?: 'light' | 'dark';
 }
 
 export const PlaylistCard = ({ 
@@ -155,7 +156,8 @@ export const PlaylistCard = ({
   onPause,
   priority = false,
   isCurrentlyPlaying = false,
-  isPlaying = false
+  isPlaying = false,
+  variant = 'dark'
 }: PlaylistCardProps) => {
   const trackCount = playlist.tracks.length;
   const isFavorites = playlist.id === FAVORITES_PLAYLIST_ID;
@@ -205,11 +207,15 @@ export const PlaylistCard = ({
       </div>
       
       {/* Nom avec cadenas si privée */}
-      <h3 className="text-sm font-medium text-(--text-color) truncate flex items-center gap-1">
+      <h3 className={`text-sm font-medium truncate flex items-center gap-1 ${
+        variant === 'light' ? 'text-gray-900' : 'text-(--text-color)'
+      }`}>
         {isPrivate && <Lock size={12} className="text-gray-400 flex-shrink-0" />}
         {playlist.name}
       </h3>
-      <p className="text-xs text-gray-400">{trackCount} titre{trackCount !== 1 ? 's' : ''}</p>
+      <p className={`text-xs ${
+        variant === 'light' ? 'text-gray-500' : 'text-gray-400'
+      }`}>{trackCount} titre{trackCount !== 1 ? 's' : ''}</p>
     </Link>
   );
 };

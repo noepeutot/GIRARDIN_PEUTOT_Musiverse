@@ -1,10 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { Heart } from "lucide-react";
 import { PostType } from "@/pages/home";
 import { MusicPlayer } from "./musicPlayer";
 import { RelativeTimeDisplay } from "./relativeTimeDisplay";
-import { CommentsModal } from "./commentsModal";
-import { useSocial } from "@/lib/socialContext";
+import { CommentsModal, BaseComment } from "./commentsModal";
+import { useSocial, Comment, getPostLikes, getPostViews } from "@/lib/socialContext";
+import { useFollow } from "@/lib/followContext";
 
 interface PostProps {
   post: PostType;
@@ -22,23 +25,73 @@ const printMinifiedNumber = (num: number): string => {
 };
 
 export const Post = ({ post, hideSubscribe = false }: PostProps) => {
-  const { isPostLiked, toggleLike } = useSocial();
+  const { isPostLiked, toggleLike, getComments, addComment, isCommentLiked, toggleCommentLike } = useSocial();
+  const { isFollowing, followUser, unfollowUser } = useFollow();
   const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [isClient, setIsClient] = useState(false);
 
-  // Générer un ID unique pour le post basé sur son contenu
+  // ID utilisateur basé sur le post (artistId ou hash du username)
+  const userId = useMemo(() => {
+    if (post.artistId) return post.artistId;
+    const hash = post.username.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return `user_${hash}`;
+  }, [post.artistId, post.username]);
+
+  const isUserFollowed = isFollowing(userId);
+
+  // Générer un ID unique et stable pour le post basé sur son contenu (pas la date pour éviter les problèmes SSR)
   const postId = useMemo(() => {
-    return `post_${post.username}_${post.datePosted.getTime()}`;
-  }, [post.username, post.datePosted]);
+    // Hash simple du contenu pour créer un ID stable
+    const contentHash = post.content.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return `post_${post.username}_${contentHash}`;
+  }, [post.username, post.content]);
+
+  // Charger les commentaires uniquement côté client après le montage
+  useEffect(() => {
+    setIsClient(true);
+    setComments(getComments(postId));
+  }, [postId, getComments]);
 
   const isLiked = isPostLiked(postId);
-  const displayedLikes = isLiked ? post.numberLike + 1 : post.numberLike;
+  
+  // Utiliser les valeurs générées de manière déterministe
+  const baseLikes = getPostLikes(postId);
+  const displayedLikes = isLiked ? baseLikes + 1 : baseLikes;
+  const displayedViews = getPostViews(postId);
+  
+  const [isLikeAnimating, setIsLikeAnimating] = useState(false);
+  const [showViewsTooltip, setShowViewsTooltip] = useState(false);
+
+  // Fermer le tooltip automatiquement après 2 secondes
+  useEffect(() => {
+    if (showViewsTooltip) {
+      const timer = setTimeout(() => setShowViewsTooltip(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [showViewsTooltip]);
 
   const handleLike = () => {
+    setIsLikeAnimating(true);
     toggleLike(postId);
+    setTimeout(() => setIsLikeAnimating(false), 300);
   };
 
   const handleOpenComments = () => {
     setShowComments(true);
+  };
+
+  const handleFollow = () => {
+    if (isUserFollowed) {
+      unfollowUser(userId);
+    } else {
+      followUser({
+        id: userId,
+        name: post.username,
+        image: post.artistImage,
+        isArtist: !!post.artistId,
+      });
+    }
   };
 
   return (
@@ -47,24 +100,48 @@ export const Post = ({ post, hideSubscribe = false }: PostProps) => {
         {/* Top bar of a post */}
         <header className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Image
-              src={post.artistImage || "/photoProfil.png"}
-              alt="Profile Photo"
-              width={40}
-              height={40}
-              className="rounded-full object-cover"
-            />
-            <p className="flex items-center gap-2 font-bold text-[0.95em]">
-              {post.username}
-              <span className="font-normal text-gray-500 text-[0.95em]">•</span>
-              <span className="font-normal text-gray-500 text-[0.95em]">
-                <RelativeTimeDisplay datePosted={post.datePosted}/>
-              </span>
-            </p>
+            {post.artistId ? (
+              <Link href={`/profile/${post.artistId}`} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Image
+                  src={post.artistImage || "/photoProfil.png"}
+                  alt="Profile Photo"
+                  width={40}
+                  height={40}
+                  className="rounded-full object-cover"
+                />
+                <span className="font-bold text-[0.95em] hover:underline">
+                  {post.username}
+                </span>
+              </Link>
+            ) : (
+              <>
+                <Image
+                  src={post.artistImage || "/photoProfil.png"}
+                  alt="Profile Photo"
+                  width={40}
+                  height={40}
+                  className="rounded-full object-cover"
+                />
+                <span className="font-bold text-[0.95em]">
+                  {post.username}
+                </span>
+              </>
+            )}
+            <span className="font-normal text-gray-500 text-[0.95em]">•</span>
+            <span className="font-normal text-gray-500 text-[0.95em]">
+              <RelativeTimeDisplay datePosted={post.datePosted}/>
+            </span>
           </div>
           {!hideSubscribe && (
-            <button className="cursor-pointer hover:opacity-80 transition-opacity text-(--text-color) text-[0.8em] bg-(--brown) py-1 px-3 rounded-[5px]">
-              S'abonner
+            <button 
+              onClick={handleFollow}
+              className={`cursor-pointer transition-all text-[0.8em] py-1 px-3 rounded-[5px] ${
+                isUserFollowed 
+                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
+                  : 'bg-(--brown) text-(--text-color) hover:opacity-80'
+              }`}
+            >
+              {isUserFollowed ? 'Abonné' : "S'abonner"}
             </button>
           )}
         </header>
@@ -75,11 +152,11 @@ export const Post = ({ post, hideSubscribe = false }: PostProps) => {
             <MusicPlayer className="mt-4" music={post.music}/>
           )}
         </div>
-        <footer className="flex items-center justify-center gap-6 mt-4">
-          {/* Commentaires - cliquable */}
+        <footer className="flex items-center justify-center gap-10 mt-4">
+          {/* Commentaires - cliquable avec effet hover */}
           <button 
             onClick={handleOpenComments}
-            className="flex items-center gap-1.5 hover:opacity-70 transition-opacity cursor-pointer"
+            className="flex items-center gap-1.5 cursor-pointer transition-all duration-200 hover:scale-110 active:scale-95"
           >
             <svg
               width="16"
@@ -94,35 +171,41 @@ export const Post = ({ post, hideSubscribe = false }: PostProps) => {
               />
             </svg>
             <span className="text-[0.85em] text-gray-600">
-              {printMinifiedNumber(post.numberComment)}
+              {isClient ? printMinifiedNumber(comments.length) : '...'}
             </span>
           </button>
 
-          {/* Like - cliquable avec état */}
+          {/* Like - avec animation */}
           <button 
             onClick={handleLike}
-            className="flex items-center gap-1.5 hover:opacity-70 transition-opacity cursor-pointer"
+            className={`flex items-center gap-1.5 cursor-pointer transition-all duration-200 ${
+              isLikeAnimating ? 'scale-125' : 'scale-100'
+            } hover:scale-110 active:scale-95`}
           >
-            <svg
-              width="15"
-              height="14"
-              viewBox="0 0 15 14"
-              fill={isLiked ? "#E44949" : "none"}
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M13.629 1.4093C12.834 0.612209 11.7801 0.125709 10.6578 0.0376812C9.5354 -0.0503463 8.41857 0.265903 7.509 0.929304C6.55474 0.219532 5.36699 -0.102313 4.18494 0.0285818C3.00288 0.159476 1.91433 0.733387 1.13848 1.63474C0.362626 2.5361 -0.0428876 3.69794 0.00359655 4.88631C0.0500807 6.07468 0.545109 7.20131 1.389 8.0393L6.0465 12.7043C6.43651 13.0881 6.96179 13.3033 7.509 13.3033C8.05621 13.3033 8.58148 13.0881 8.9715 12.7043L13.629 8.0393C14.5047 7.15825 14.9962 5.96651 14.9962 4.7243C14.9962 3.4821 14.5047 2.29035 13.629 1.4093ZM12.5715 7.0043L7.914 11.6618C7.861 11.7153 7.79792 11.7578 7.7284 11.7868C7.65889 11.8158 7.58431 11.8307 7.509 11.8307C7.43368 11.8307 7.35911 11.8158 7.28959 11.7868C7.22008 11.7578 7.157 11.7153 7.104 11.6618L2.4465 6.9818C1.85831 6.38056 1.52895 5.5729 1.52895 4.7318C1.52895 3.8907 1.85831 3.08304 2.4465 2.4818C3.04586 1.89004 3.85423 1.55823 4.6965 1.55823C5.53877 1.55823 6.34713 1.89004 6.9465 2.4818C7.01622 2.5521 7.09917 2.6079 7.19056 2.64597C7.28196 2.68405 7.37999 2.70365 7.479 2.70365C7.578 2.70365 7.67603 2.68405 7.76743 2.64597C7.85882 2.6079 7.94177 2.5521 8.0115 2.4818C8.61086 1.89004 9.41923 1.55823 10.2615 1.55823C11.1038 1.55823 11.9121 1.89004 12.5115 2.4818C13.1078 3.07517 13.4479 3.87845 13.4592 4.71957C13.4704 5.56069 13.1517 6.37275 12.5715 6.9818V7.0043Z"
-                fill={isLiked ? "#E44949" : "#7B7B7B"}
-                stroke={isLiked ? "#E44949" : "none"}
-              />
-            </svg>
-            <span className={`text-[0.85em] ${isLiked ? 'text-red-500' : 'text-gray-600'}`}>
+            <Heart 
+              size={16} 
+              className={`transition-colors duration-200 ${isLiked ? 'text-red-500' : 'text-gray-500'}`}
+              fill={isLiked ? 'currentColor' : 'none'}
+            />
+            <span className={`text-[0.85em] transition-colors duration-200 ${isLiked ? 'text-red-500' : 'text-gray-600'}`}>
               {printMinifiedNumber(displayedLikes)}
             </span>
           </button>
 
-          {/* Vues */}
-          <article className="flex items-center gap-1.5">
+          {/* Vues - avec tooltip */}
+          <div 
+            className="relative flex items-center gap-1.5 cursor-pointer"
+            onMouseEnter={() => setShowViewsTooltip(true)}
+            onMouseLeave={() => setShowViewsTooltip(false)}
+            onClick={() => setShowViewsTooltip(!showViewsTooltip)}
+          >
+            {/* Tooltip */}
+            {showViewsTooltip && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap shadow-lg z-10">
+                Nombre de vues
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+              </div>
+            )}
             <svg
               width="15"
               height="12"
@@ -136,28 +219,9 @@ export const Post = ({ post, hideSubscribe = false }: PostProps) => {
               />
             </svg>
             <span className="text-[0.85em] text-gray-600">
-              {printMinifiedNumber(post.numberView)}
+              {printMinifiedNumber(displayedViews)}
             </span>
-          </article>
-
-          {/* Partages */}
-          <article className="flex items-center gap-1.5">
-            <svg
-              width="15"
-              height="14"
-              viewBox="0 0 15 14"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M14.7803 6.21959L8.78025 0.21959C8.67536 0.114733 8.54174 0.0433283 8.39627 0.0144026C8.25081 -0.0145231 8.10003 0.000329213 7.96301 0.0570817C7.82598 0.113834 7.70886 0.209939 7.62645 0.333246C7.54404 0.456554 7.50003 0.601527 7.5 0.74984V3.40859C5.45122 3.59818 3.54692 4.54549 2.15977 6.06511C0.772615 7.58474 0.0024538 9.56731 0 11.6248V12.7498C0.000118392 12.9055 0.0486823 13.0573 0.138956 13.1842C0.229229 13.311 0.356737 13.4066 0.503794 13.4577C0.650851 13.5088 0.810168 13.5129 0.959647 13.4694C1.10913 13.4259 1.24136 13.3369 1.338 13.2148C2.07277 12.3411 2.97432 11.6225 3.98996 11.1011C5.0056 10.5797 6.11497 10.2659 7.25325 10.1781C7.29075 10.1736 7.3845 10.1661 7.5 10.1586V12.7498C7.50003 12.8982 7.54404 13.0431 7.62645 13.1664C7.70886 13.2897 7.82598 13.3858 7.96301 13.4426C8.10003 13.4994 8.25081 13.5142 8.39627 13.4853C8.54174 13.4564 8.67536 13.3849 8.78025 13.2801L14.7803 7.28009C14.9209 7.13944 14.9998 6.94871 14.9998 6.74984C14.9998 6.55097 14.9209 6.36024 14.7803 6.21959ZM9 10.9393V9.37484C9 9.17593 8.92098 8.98516 8.78033 8.84451C8.63968 8.70386 8.44891 8.62484 8.25 8.62484C8.05875 8.62484 7.278 8.66234 7.0785 8.68859C5.05715 8.87484 3.13306 9.6428 1.539 10.8996C1.71993 9.24542 2.50465 7.7161 3.74292 6.60446C4.98118 5.49282 6.58596 4.87698 8.25 4.87484C8.44891 4.87484 8.63968 4.79582 8.78033 4.65517C8.92098 4.51452 9 4.32375 9 4.12484V2.56034L13.1895 6.74984L9 10.9393Z"
-                fill="#7B7B7B"
-              />
-            </svg>
-            <span className="text-[0.85em] text-gray-600">
-              {printMinifiedNumber(post.numberReshare)}
-            </span>
-          </article>
+          </div>
         </footer>
       </article>
 
@@ -165,9 +229,21 @@ export const Post = ({ post, hideSubscribe = false }: PostProps) => {
       <CommentsModal 
         isOpen={showComments}
         onClose={() => setShowComments(false)}
-        postId={postId}
-        postUsername={post.username}
+        comments={comments.map(c => ({
+          id: c.id,
+          username: c.username,
+          userImage: c.userImage,
+          content: c.content,
+          createdAt: c.createdAt,
+          likes: c.likes,
+        }))}
+        onAddComment={(content, username, userImage) => addComment(postId, content, username, userImage)}
+        onLikeComment={toggleCommentLike}
+        isCommentLiked={isCommentLiked}
+        formatLikes={printMinifiedNumber}
+        variant="light"
       />
     </>
   );
 };
+

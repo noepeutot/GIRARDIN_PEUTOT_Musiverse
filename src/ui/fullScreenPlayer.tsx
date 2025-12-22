@@ -1,11 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { ChevronDown, Play, Pause, SkipBack, SkipForward, Heart, MessageCircle, Shuffle, Repeat, Repeat1 } from 'lucide-react';
 import { usePlayer } from '@/lib/playerContext';
 import { usePlaylist } from '@/lib/playlistContext';
 import { formatDuration } from '@/lib/jamendoApi';
-import { getTrackLikes, formatLikes, getTrackComments } from '@/lib/socialData';
-import { CommentsModal } from './commentsModal';
+import { getTrackLikes, formatLikes, getTrackComments, addUserComment, isCommentLiked as checkCommentLiked, toggleCommentLike } from '@/lib/socialData';
+import { ensureArtistsLoaded } from '@/lib/artistsCache';
+import { CommentsModal, BaseComment } from './commentsModal';
+
 
 interface FullScreenPlayerProps {
   isOpen: boolean;
@@ -37,6 +41,7 @@ export const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => 
   const [isAnimating, setIsAnimating] = useState(false);
   const [dominantColor, setDominantColor] = useState('#3d3525');
   const [showComments, setShowComments] = useState(false);
+  const [isLikeAnimating, setIsLikeAnimating] = useState(false);
 
   // Vérifier si la track actuelle est likée
   const isLiked = currentTrack ? isTrackFavorite(currentTrack.id) : false;
@@ -88,6 +93,13 @@ export const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => 
     });
   }, []);
 
+  // Précharger le cache d'artistes pour les commentaires
+  useEffect(() => {
+    ensureArtistsLoaded().catch(error => {
+      console.error('Erreur préchargement artistes:', error);
+    });
+  }, []);
+
   // Extraire couleur quand la track change
   useEffect(() => {
     if (currentTrack) {
@@ -109,6 +121,56 @@ export const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => 
     }
   }, [isOpen]);
 
+  // Appliquer la couleur dominante et le gradient au body quand le player est ouvert
+  useEffect(() => {
+    if (isOpen && isAnimating) {
+      // Bloquer le scroll du body
+      document.body.style.overflow = 'hidden';
+      
+      // Sauvegarder et retirer la classe theme-dark si présente
+      const hadThemeDark = document.body.classList.contains('theme-dark');
+      if (hadThemeDark) {
+        document.body.classList.remove('theme-dark');
+        document.body.dataset.hadThemeDark = 'true';
+      }
+      
+      // Appliquer la couleur de fond
+      document.body.style.backgroundColor = dominantColor;
+      document.body.style.transition = 'background-color 300ms ease';
+      
+      // Créer et appliquer le gradient overlay
+      const gradientOverlay = document.createElement('div');
+      gradientOverlay.id = 'fullscreen-gradient-overlay';
+      gradientOverlay.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), transparent, rgba(0, 0, 0, 0.6));
+        pointer-events: none;
+        z-index: 0;
+      `;
+      document.body.appendChild(gradientOverlay);
+    }
+    
+    return () => {
+      // Restaurer le scroll
+      document.body.style.overflow = '';
+      
+      // Restaurer quand on ferme
+      document.body.style.backgroundColor = '';
+      
+      // Restaurer theme-dark si elle était présente
+      if (document.body.dataset.hadThemeDark === 'true') {
+        document.body.classList.add('theme-dark');
+        delete document.body.dataset.hadThemeDark;
+      }
+      
+      const overlay = document.getElementById('fullscreen-gradient-overlay');
+      if (overlay) {
+        overlay.remove();
+      }
+    };
+  }, [isOpen, isAnimating, dominantColor]);
+
   const handleClose = () => {
     setIsAnimating(false);
     setTimeout(onClose, 300);
@@ -127,7 +189,9 @@ export const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => 
 
   const handleLike = () => {
     if (currentTrack) {
+      setIsLikeAnimating(true);
       toggleFavorite(currentTrack);
+      setTimeout(() => setIsLikeAnimating(false), 300);
     }
   };
 
@@ -138,7 +202,7 @@ export const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => 
   return (
     <>
       <div 
-        className={`fixed inset-0 z-[100] ${
+        className={`fullscreen-player-container ${
           isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
         }`}
         style={{ 
@@ -178,9 +242,8 @@ export const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => 
                 src={currentTrack.album_image || currentTrack.image || '/albumCoverExample.png'}
                 alt={currentTrack.name}
                 fill
-                sizes="320px"
+                sizes="(max-width: 640px) 288px, 320px"
                 className="object-cover"
-                priority
               />
             </div>
           </div>
@@ -190,18 +253,20 @@ export const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => 
             {/* Like */}
             <button 
               onClick={(e) => { e.stopPropagation(); handleLike(); }}
-              className="flex flex-col items-center gap-1 active:scale-95 transition-transform"
+              className={`flex flex-col items-center gap-1 transition-transform duration-200 ${
+                isLikeAnimating ? 'scale-125' : 'scale-100'
+              } active:scale-95`}
             >
-              <div className={`w-11 h-11 rounded-full backdrop-blur flex items-center justify-center ${
+              <div className={`w-11 h-11 rounded-full backdrop-blur flex items-center justify-center transition-colors duration-200 ${
                 isLiked ? 'bg-red-500/20' : 'bg-white/20'
               }`}>
                 <Heart 
                   size={22} 
-                  className={isLiked ? 'text-red-500' : 'text-white'} 
+                  className={`transition-colors duration-200 ${isLiked ? 'text-red-500' : 'text-white'}`}
                   fill={isLiked ? 'currentColor' : 'none'}
                 />
               </div>
-              <span className={`text-[10px] ${isLiked ? 'text-red-400' : 'text-white'}`}>
+              <span className={`text-[10px] transition-colors duration-200 ${isLiked ? 'text-red-400' : 'text-white'}`}>
                 {formatLikes(displayLikes)}
               </span>
             </button>
@@ -222,7 +287,16 @@ export const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => 
           <div className="px-6 pb-6 pointer-events-auto z-30">
             <div className="mb-4">
               <h2 className="text-white font-bold text-xl mb-1">{currentTrack.name}</h2>
-              <p className="text-white/70">{currentTrack.artist_name}</p>
+              <Link 
+                href={`/profile/${currentTrack.artist_id}`}
+                className="text-white/70 hover:text-white hover:underline transition-colors inline-block"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+              >
+                {currentTrack.artist_name}
+              </Link>
             </div>
 
             {/* Barre de progression */}
@@ -315,8 +389,24 @@ export const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => 
       <CommentsModal 
         isOpen={showComments}
         onClose={() => setShowComments(false)}
-        trackId={currentTrack.id}
-        trackName={currentTrack.name}
+        comments={comments.map(c => ({
+          id: c.id,
+          username: c.username,
+          userImage: c.userImage,
+          content: c.text,
+          createdAt: new Date(Date.now() - c.timestamp * 60 * 1000),
+          likes: c.likes,
+        }))}
+        onAddComment={(content, username, userImage) => {
+          if (currentTrack) {
+            addUserComment(currentTrack.id, content, username, userImage);
+          }
+        }}
+        onLikeComment={toggleCommentLike}
+        isCommentLiked={checkCommentLiked}
+        formatLikes={formatLikes}
+        variant="dark"
+        backgroundColor={dominantColor}
       />
     </>
   );
