@@ -4,6 +4,7 @@ export interface MusicEvent {
   id: string;
   name: string;
   artist: string;
+  artist_id?: string;
   artistImage: string;
   venue: string;
   city: string;

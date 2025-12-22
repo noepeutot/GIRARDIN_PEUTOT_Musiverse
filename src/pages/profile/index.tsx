@@ -14,19 +14,23 @@ import { usePlayer } from '@/lib/playerContext';
 import { useAuth } from '@/lib/authContext';
 import { usePlaylist } from '@/lib/playlistContext';
 import { useFollow } from '@/lib/followContext';
+import { useUserMusic } from '@/lib/userMusicContext';
 import { SAMPLE_POST_CONTENTS } from '@/lib/sampleData';
+import { Play } from 'lucide-react';
 
 export default function UserProfilePage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading, updateProfile } = useAuth();
   const { currentTrack, playTrack, isPlaying, pause, currentSourceId } = usePlayer();
   const { playlists } = usePlaylist();
+  const { userTracks } = useUserMusic();
   const { followingCount, followersCount } = useFollow();
   
   const [activeTab, setActiveTab] = useState<'feed' | 'music' | 'playlists'>('feed');
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followModalMode, setFollowModalMode] = useState<'followers' | 'following'>('followers');
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Lire le tab depuis l'URL au chargement
   useEffect(() => {
@@ -52,14 +56,43 @@ export default function UserProfilePage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Générer des posts simulés pour l'utilisateur (8 posts)
+  // Récupérer les vrais posts de l'utilisateur depuis localStorage + posts simulés
   const userPosts = useMemo((): PostType[] => {
     if (!user) return [];
     
-    const seed = parseInt(user.id.replace('user_', '')) || 12345;
-    const numPosts = 8;
+    // Importer les posts utilisateur de localStorage
+    const { getUserPosts } = require('@/lib/feedUtils');
+    const realUserPosts = getUserPosts();
     
-    return Array.from({ length: numPosts }, (_, i) => {
+    // Convertir les posts localStorage en PostType
+    const convertedRealPosts: PostType[] = realUserPosts.map((p: {
+      id: string; username: string; artistImage: string; content: string; datePosted: Date;
+      numberComment: number; numberLike: number; numberView: number; numberReshare: number;
+      attachedTracks?: Array<{ id: string; name: string; artist: string; image: string }>;
+      attachedPlaylist?: { id: string; name: string; coverImage: string };
+      attachedEvent?: { id: string; name: string; artist: string; venue: string; city: string; date: string; price: string; category: string };
+      poll?: { question: string; options: string[] };
+    }) => ({
+      id: p.id,
+      username: p.username,
+      datePosted: new Date(p.datePosted),
+      content: p.content,
+      numberComment: p.numberComment,
+      numberLike: p.numberLike,
+      numberView: p.numberView,
+      numberReshare: p.numberReshare,
+      artistImage: p.artistImage,
+      attachedTracks: p.attachedTracks,
+      attachedPlaylist: p.attachedPlaylist,
+      attachedEvent: p.attachedEvent,
+      poll: p.poll,
+    }));
+    
+    // Générer des posts simulés
+    const seed = parseInt(user.id.replace('user_', '')) || 12345;
+    const numPosts = 5;
+    
+    const simulatedPosts: PostType[] = Array.from({ length: numPosts }, (_, i) => {
       const contentIndex = (seed + i) % SAMPLE_POST_CONTENTS.length;
       const hoursAgo = (i + 1) * 2 + ((seed * i) % 10);
       
@@ -74,7 +107,13 @@ export default function UserProfilePage() {
         artistImage: user.image,
       };
     });
-  }, [user]);
+    
+    // Fusionner et trier par date (plus récent en premier)
+    return [...convertedRealPosts, ...simulatedPosts].sort(
+      (a, b) => b.datePosted.getTime() - a.datePosted.getTime()
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, refreshKey]);
 
   // Playlists publiques de l'utilisateur (exclure favoris)
   const publicPlaylists = useMemo(() => {
@@ -203,18 +242,59 @@ export default function UserProfilePage() {
         {activeTab === 'feed' && (
           <div className="px-4 py-4 flex flex-col gap-3">
             {userPosts.map((post, index) => (
-              <Post key={index} post={post} hideSubscribe />
+              <Post 
+                key={post.id || index} 
+                post={post} 
+                hideSubscribe 
+                onDelete={() => setRefreshKey(k => k + 1)}
+              />
             ))}
           </div>
         )}
 
         {activeTab === 'music' && (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Music2 size={64} className="text-gray-300 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Pas encore de musiques</h3>
-            <p className="text-gray-500 max-w-xs">
-              Tes musiques préférées apparaîtront ici
-            </p>
+          <div className="px-4 py-4">
+            {userTracks.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {userTracks.map((track) => (
+                  <div 
+                    key={track.id}
+                    className="flex items-center gap-3 p-3 bg-white rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-(--brown)/30 transition-colors"
+                    onClick={() => playTrack(track as any)}
+                  >
+                    <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                      <Image 
+                        src={track.image || '/albumCoverExample.png'} 
+                        alt={track.name}
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                        <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-sm">
+                          <Play size={14} className="ml-0.5 text-(--brown)" fill="currentColor" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-gray-900 truncate">{track.name}</h4>
+                      <p className="text-sm text-gray-500 truncate">{track.artist_name}</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Ajouté le {new Date(track.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Music2 size={64} className="text-gray-300 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Pas encore de musiques</h3>
+                <p className="text-gray-500 max-w-xs">
+                  Tes musiques personnelles apparaîtront ici
+                </p>
+              </div>
+            )}
           </div>
         )}
 

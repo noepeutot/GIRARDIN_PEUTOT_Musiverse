@@ -287,16 +287,20 @@ export const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => 
           <div className="px-6 pb-6 pointer-events-auto z-30">
             <div className="mb-4">
               <h2 className="text-white font-bold text-xl mb-1">{currentTrack.name}</h2>
-              <Link 
-                href={`/profile/${currentTrack.artist_id}`}
-                className="text-white/70 hover:text-white hover:underline transition-colors inline-block"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClose();
-                }}
-              >
-                {currentTrack.artist_name}
-              </Link>
+              {currentTrack.artist_id ? (
+                <Link 
+                  href={`/profile/${currentTrack.artist_id}`}
+                  className="text-white/70 hover:text-white hover:underline transition-colors inline-block"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose();
+                  }}
+                >
+                  {currentTrack.artist_name}
+                </Link>
+              ) : (
+                <span className="text-white/70">{currentTrack.artist_name}</span>
+              )}
             </div>
 
             {/* Barre de progression */}

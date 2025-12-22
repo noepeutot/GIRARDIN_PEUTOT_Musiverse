@@ -14,6 +14,8 @@ import { JamendoTrack, JamendoAlbum, JamendoArtist } from '@/lib/types';
 import { getPopularTracks, getPopularAlbums, getTracksByArtist, getTrendingTracks, getPopularArtists, MUSIC_TAGS, formatDuration } from '@/lib/jamendoApi';
 import { usePlayer } from '@/lib/playerContext';
 import { usePlaylist, FAVORITES_PLAYLIST_ID } from '@/lib/playlistContext';
+import { useUserMusic } from '@/lib/userMusicContext';
+import { useAuth } from '@/lib/authContext';
 import { useBodyTheme } from '@/lib/useBodyTheme';
 import { SAMPLE_EVENTS, SAMPLE_PUBLIC_PLAYLISTS, formatEventDate, getCategoryLabel } from '@/lib/sampleEvents';
 
@@ -60,6 +62,8 @@ export default function MusicPage() {
 
   const { playTrack, currentTrack, history, isPlaying, pause, tracklist, currentSourceId } = usePlayer();
   const { playlists, createPlaylist } = usePlaylist();
+  const { userTracks } = useUserMusic();
+  const { user } = useAuth();
   
   // Appliquer le thème dark sur body pour le gradient étendu
   useBodyTheme('dark');
@@ -257,7 +261,7 @@ export default function MusicPage() {
                           <div className="relative w-28 h-28 rounded-lg overflow-hidden mb-2">
                             <button
                               onClick={() => playTrack(track)}
-                              className="w-full h-full"
+                              className="w-full h-full relative"
                             >
                               <Image
                                 src={track.album_image || track.image || '/albumCoverExample.png'}
@@ -470,6 +474,28 @@ export default function MusicPage() {
 
             {activeTab === 'music' && (
               <>
+                {/* Section Mes Sons (si connectée et tracks existantes) */}
+                {user && userTracks.length > 0 && (
+                  <section>
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="font-bold text-lg text-(--text-color)">Mes Sons</h2>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {userTracks.map((track) => (
+                        <div key={track.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                          <button onClick={() => playTrack(track as any)} className="relative w-10 h-10 rounded overflow-hidden flex-shrink-0">
+                            <Image src={track.image || '/albumCoverExample.png'} alt={track.name} fill sizes="40px" className="object-cover" />
+                          </button>
+                          <button onClick={() => playTrack(track as any)} className="flex-grow min-w-0 text-left">
+                            <p className={`text-sm font-medium truncate ${currentTrack?.id === track.id ? 'text-(--yellow)' : 'text-(--text-color)'}`}>{track.name}</p>
+                            <p className="text-xs text-gray-400 truncate">{track.artist_name} • {formatDuration(track.duration)}</p>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 {/* Section Écoutés Récemment - 4 tracks centrés */}
                 {history.length > 0 && (
                   <section>

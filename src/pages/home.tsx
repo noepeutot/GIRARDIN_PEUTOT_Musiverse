@@ -6,12 +6,13 @@ import { Post } from "@/ui/post";
 import { PageHeader } from "@/ui/PageHeader";
 import { getPopularArtists } from "@/lib/jamendoApi";
 import { JamendoArtist } from "@/lib/types";
-import { generateRandomPosts, generateNewerPosts, GeneratedPost } from "@/lib/feedUtils";
+import { generateRandomPosts, generateNewerPosts, GeneratedPost, getUserPosts } from "@/lib/feedUtils";
 import { usePlayer } from "@/lib/playerContext";
 import { useAuth } from "@/lib/authContext";
 import { ensureArtistsLoaded } from "@/lib/artistsCache";
 
 export interface PostType {
+  id?: string; // ID du post pour suppression
   username: string;
   datePosted: Date;
   content: string;
@@ -21,7 +22,12 @@ export interface PostType {
   numberReshare: number;
   music?: MusicType;
   artistImage?: string;
-  artistId?: string; // ID de l'artiste pour la navigation
+  artistId?: string;
+  // Pièces jointes
+  attachedTracks?: Array<{ id: string; name: string; artist: string; artist_id?: string; image: string; audio?: string }>;
+  attachedPlaylist?: { id: string; name: string; coverImage: string; tracks?: Array<{ id: string; name: string; artist_name?: string; artist?: string; artist_id?: string; image?: string; album_image?: string; duration?: number; audio?: string }> };
+  attachedEvent?: { id: string; name: string; artist: string; artist_id?: string; venue: string; city: string; date: string; price: string; category: string };
+  poll?: { question: string; options: string[] };
 }
 
 export interface MusicType {
@@ -62,10 +68,19 @@ export default function Home() {
         const popularArtists = await getPopularArtists(30);
         setArtists(popularArtists);
         
-        // Générer les premiers posts
-        const initialPosts = generateRandomPosts(popularArtists, 10);
-        setPosts(initialPosts);
-        setUsedPostIds(new Set(initialPosts.map(p => p.id)));
+        // Générer les premiers posts aléatoires
+        const randomPosts = generateRandomPosts(popularArtists, 10);
+        
+        // Récupérer les posts utilisateur de localStorage
+        const userPosts = getUserPosts();
+        
+        // Fusionner et trier par date (plus récent en premier)
+        const allPosts = [...userPosts, ...randomPosts].sort(
+          (a, b) => b.datePosted.getTime() - a.datePosted.getTime()
+        );
+        
+        setPosts(allPosts);
+        setUsedPostIds(new Set(allPosts.map(p => p.id)));
       } catch (error) {
         console.error("Erreur lors du chargement des artistes:", error);
       } finally {
@@ -144,6 +159,7 @@ export default function Home() {
   
   // Convertir GeneratedPost en PostType
   const convertToPostType = (post: GeneratedPost): PostType => ({
+    id: post.id,
     username: post.username,
     datePosted: post.datePosted,
     content: post.content,
@@ -153,6 +169,10 @@ export default function Home() {
     numberReshare: post.numberReshare,
     artistImage: post.artistImage,
     artistId: post.artistId,
+    attachedTracks: post.attachedTracks,
+    attachedPlaylist: post.attachedPlaylist,
+    attachedEvent: post.attachedEvent,
+    poll: post.poll,
   });
   
   const bottomPadding = currentTrack ? 'pb-36' : 'pb-24';

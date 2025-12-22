@@ -5,6 +5,7 @@ import { PlayerProvider } from "@/lib/playerContext";
 import { PlaylistProvider } from "@/lib/playlistContext";
 import { SocialProvider } from "@/lib/socialContext";
 import { FollowProvider } from "@/lib/followContext";
+import { UserMusicProvider } from "@/lib/userMusicContext";
 import AppLayout from "@/ui/AppLayout";
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -12,13 +13,15 @@ export default function App({ Component, pageProps }: AppProps) {
     <AuthProvider>
       <FollowProvider>
         <SocialProvider>
-          <PlaylistProvider>
-            <PlayerProvider>
-              <AppLayout>
-                <Component {...pageProps} />
-              </AppLayout>
-            </PlayerProvider>
-          </PlaylistProvider>
+          <UserMusicProvider>
+            <PlaylistProvider>
+              <PlayerProvider>
+                <AppLayout>
+                  <Component {...pageProps} />
+                </AppLayout>
+              </PlayerProvider>
+            </PlaylistProvider>
+          </UserMusicProvider>
         </SocialProvider>
       </FollowProvider>
     </AuthProvider>

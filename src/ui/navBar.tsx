@@ -9,6 +9,7 @@ import { AddToPlaylistModal } from "./addToPlaylistModal";
 import { CreatePlaylistModal } from "./createPlaylistModal";
 import { usePlaylist } from "@/lib/playlistContext";
 import { useAuth } from "@/lib/authContext";
+import { UploadSoundModal } from "./uploadSoundModal";
 
 export const NavBar = () => {
   const { currentTrack, isPlaying, pause, resume, currentTime, duration, seek } = usePlayer();
@@ -21,6 +22,8 @@ export const NavBar = () => {
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
+  const [showUploadSound, setShowUploadSound] = useState(false);
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
   
   // State pour la visibilité du player - persisté dans localStorage
   const [isPlayerVisible, setIsPlayerVisible] = useState(() => {
@@ -146,7 +149,15 @@ export const NavBar = () => {
                     {currentTrack.name}
                   </p>
                   <p className="text-xs text-gray-400 truncate">
-                    {currentTrack.artist_name}
+                    {currentTrack.artist_id ? (
+                      <Link 
+                        href={`/profile/${currentTrack.artist_id}`} 
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:underline hover:text-(--text-color) transition-colors"
+                      >
+                        {currentTrack.artist_name}
+                      </Link>
+                    ) : currentTrack.artist_name}
                   </p>
                 </div>
 
@@ -222,20 +233,58 @@ export const NavBar = () => {
                 />
               </svg>
             </ButtonNavBar>
-            <ButtonNavBar link="/createPost" className="bg-[#F2F2F2] w-12 h-12 rounded-xl flex items-center justify-center">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 30 30"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+            
+            <div className="relative">
+              <button 
+                className="bg-[#F2F2F2] w-12 h-12 rounded-xl flex items-center justify-center flex-col text-(--text-color) text-[0.7em] hover:bg-white transition-colors"
+                onClick={() => setShowCreateMenu(!showCreateMenu)}
               >
-                <path
-                  d="M14.9997 0C16.3078 0 17.368 1.06033 17.368 2.3683V12.6314H27.6317C28.9396 12.6314 30 13.6917 30 14.9997C30 16.3078 28.9396 17.368 27.6317 17.368H17.368V27.6317C17.368 28.9396 16.3078 30 14.9997 30C13.6917 30 12.6314 28.9396 12.6314 27.6317V17.368H2.3683C1.06033 17.368 0 16.3078 0 14.9997C0 13.6917 1.06033 12.6314 2.3683 12.6314H12.6314V2.3683C12.6314 1.06033 13.6917 0 14.9997 0Z"
-                  fill="#342E1B"
-                />
-              </svg>
-            </ButtonNavBar>
+                <div className="flex items-center justify-center w-full h-full">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 30 30"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M14.9997 0C16.3078 0 17.368 1.06033 17.368 2.3683V12.6314H27.6317C28.9396 12.6314 30 13.6917 30 14.9997C30 16.3078 28.9396 17.368 27.6317 17.368H17.368V27.6317C17.368 28.9396 16.3078 30 14.9997 30C13.6917 30 12.6314 28.9396 12.6314 27.6317V17.368H2.3683C1.06033 17.368 0 16.3078 0 14.9997C0 13.6917 1.06033 12.6314 2.3683 12.6314H12.6314V2.3683C12.6314 1.06033 13.6917 0 14.9997 0Z"
+                      fill="#342E1B"
+                    />
+                  </svg>
+                </div>
+              </button>
+
+              {/* Menu Créer */}
+              {showCreateMenu && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowCreateMenu(false)}
+                  />
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 bg-(--background-brown) border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in duration-200">
+                    <Link 
+                      href="/createPost"
+                      className="block px-4 py-3 text-white hover:bg-white/10 transition-colors text-center font-medium"
+                      onClick={() => setShowCreateMenu(false)}
+                    >
+                      Créer un post
+                    </Link>
+                    <div className="h-px bg-white/10" />
+                    <button
+                      className="block w-full px-4 py-3 text-white hover:bg-white/10 transition-colors text-center font-medium"
+                      onClick={() => {
+                        setShowCreateMenu(false);
+                        setShowUploadSound(true);
+                      }}
+                    >
+                      Ajouter un son
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             <ButtonNavBar name="Musique" link="/music">
               <svg
                 width="24"
@@ -295,6 +344,11 @@ export const NavBar = () => {
         isOpen={showCreatePlaylist}
         onClose={() => setShowCreatePlaylist(false)}
         onCreate={(name, desc, isPublic) => createPlaylist(name, desc, isPublic)}
+      />
+
+      <UploadSoundModal 
+        isOpen={showUploadSound} 
+        onClose={() => setShowUploadSound(false)} 
       />
     </>
   );

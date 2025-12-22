@@ -14,6 +14,11 @@ export interface GeneratedPost {
   numberLike: number;
   numberView: number;
   numberReshare: number;
+  // Extensions pour les pièces jointes
+  attachedTracks?: Array<{ id: string; name: string; artist: string; artist_id?: string; image: string; audio?: string }>;
+  attachedPlaylist?: { id: string; name: string; coverImage: string; tracks?: Array<{ id: string; name: string; artist_name?: string; artist_id?: string; image?: string; album_image?: string; duration?: number; audio?: string }> };
+  attachedEvent?: { id: string; name: string; artist: string; artist_id?: string; venue: string; city: string; date: string; price: string; category: string };
+  poll?: { question: string; options: string[] };
 }
 
 // Générer un ID unique pour un post
@@ -133,4 +138,81 @@ export const generateNewerPosts = (
   }
   
   return posts.sort((a, b) => b.datePosted.getTime() - a.datePosted.getTime());
+};
+
+// Clé localStorage pour les posts utilisateur
+const USER_POSTS_STORAGE_KEY = 'musiverse_user_posts';
+
+/**
+ * Récupère les posts de l'utilisateur depuis localStorage
+ */
+export const getUserPosts = (): GeneratedPost[] => {
+  try {
+    const stored = localStorage.getItem(USER_POSTS_STORAGE_KEY);
+    if (stored) {
+      const posts = JSON.parse(stored);
+      return posts.map((p: GeneratedPost) => ({
+        ...p,
+        datePosted: new Date(p.datePosted),
+      }));
+    }
+  } catch (error) {
+    console.error('Erreur chargement posts utilisateur:', error);
+  }
+  return [];
+};
+
+/**
+ * Ajoute un nouveau post utilisateur
+ */
+export const addUserPost = (
+  username: string,
+  userImage: string,
+  content: string,
+  attachedTracks?: Array<{ id: string; name: string; artist: string; artist_id?: string; image: string; audio?: string }> | null,
+  attachedPlaylist?: { id: string; name: string; coverImage: string; tracks?: Array<{ id: string; name: string; artist_name?: string; artist_id?: string; image?: string; album_image?: string; duration?: number; audio?: string }> } | null,
+  attachedEvent?: { id: string; name: string; artist: string; artist_id?: string; venue: string; city: string; date: string; price: string; category: string } | null,
+  poll?: { question: string; options: string[] } | null
+): GeneratedPost => {
+  const timestamp = Date.now();
+  const newPost: GeneratedPost = {
+    id: `user_post_${timestamp}`,
+    username,
+    artistId: 'user_self',
+    artistImage: userImage,
+    content,
+    datePosted: new Date(timestamp),
+    numberComment: 0,
+    numberLike: 0,
+    numberView: 0,
+    numberReshare: 0,
+    // Extensions pour les pièces jointes (optionnel)
+    ...(attachedTracks && attachedTracks.length > 0 && { attachedTracks }),
+    ...(attachedPlaylist && { attachedPlaylist }),
+    ...(attachedEvent && { attachedEvent }),
+    ...(poll && { poll }),
+  };
+
+  // Sauvegarder dans localStorage
+  const existingPosts = getUserPosts();
+  const updatedPosts = [newPost, ...existingPosts];
+  localStorage.setItem(USER_POSTS_STORAGE_KEY, JSON.stringify(updatedPosts));
+
+  return newPost;
+};
+
+/**
+ * Supprime un post utilisateur par son ID
+ */
+export const deleteUserPost = (postId: string): boolean => {
+  const existingPosts = getUserPosts();
+  const filteredPosts = existingPosts.filter(post => post.id !== postId);
+  
+  if (filteredPosts.length === existingPosts.length) {
+    // Post non trouvé
+    return false;
+  }
+  
+  localStorage.setItem(USER_POSTS_STORAGE_KEY, JSON.stringify(filteredPosts));
+  return true;
 };

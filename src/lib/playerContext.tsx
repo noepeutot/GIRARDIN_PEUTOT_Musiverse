@@ -108,7 +108,11 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     try {
       const savedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
       if (savedHistory) {
-        setHistory(JSON.parse(savedHistory));
+        const parsed = JSON.parse(savedHistory);
+        // Filtrer les tracks utilisateur (qui ne sont plus valides après reload)
+        // Les tracks utilisateur ont un ID commençant par 'user_track_'
+        const cleanHistory = parsed.filter((t: JamendoTrack) => !t.id.startsWith('user_track_'));
+        setHistory(cleanHistory);
       }
     } catch (error) {
       console.error('Erreur chargement historique:', error);

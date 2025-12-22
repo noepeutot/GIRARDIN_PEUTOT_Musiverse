@@ -1,5 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import { usePlayer } from '@/lib/playerContext';
 import { formatDuration } from '@/lib/jamendoApi';
@@ -71,8 +72,15 @@ export function MiniPlayer() {
           <p className="font-medium text-(--text-color) truncate text-sm">
             {currentTrack.name}
           </p>
-          <p className="text-xs text-gray-400 truncate">
-            {currentTrack.artist_name}
+                    <p className="text-xs text-gray-400 truncate">
+            {currentTrack.artist_id ? (
+              <Link 
+                href={`/profile/${currentTrack.artist_id}`}
+                className="hover:underline hover:text-(--text-color) transition-colors"
+              >
+                {currentTrack.artist_name}
+              </Link>
+            ) : currentTrack.artist_name}
           </p>
         </div>
 

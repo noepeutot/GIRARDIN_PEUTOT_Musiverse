@@ -1,17 +1,25 @@
 import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Heart } from "lucide-react";
+import { useRouter } from "next/router";
+import { Heart, MapPin, Play, Pause, Plus, Check, ChevronUp, ArrowRight, Trash2 } from "lucide-react";
 import { PostType } from "@/pages/home";
 import { MusicPlayer } from "./musicPlayer";
 import { RelativeTimeDisplay } from "./relativeTimeDisplay";
 import { CommentsModal, BaseComment } from "./commentsModal";
 import { useSocial, Comment, getPostLikes, getPostViews } from "@/lib/socialContext";
 import { useFollow } from "@/lib/followContext";
+import { usePlayer } from "@/lib/playerContext";
+import { usePlaylist, FAVORITES_PLAYLIST_ID } from "@/lib/playlistContext";
+import { useAuth } from "@/lib/authContext";
+import { AddToPlaylistModal } from "./addToPlaylistModal";
+import { PlaylistCoverGrid } from "./playlistCard";
+import { deleteUserPost } from "@/lib/feedUtils";
 
 interface PostProps {
   post: PostType;
   hideSubscribe?: boolean;
+  onDelete?: () => void; // Callback après suppression
 }
 
 const printMinifiedNumber = (num: number): string => {
@@ -24,12 +32,115 @@ const printMinifiedNumber = (num: number): string => {
   }
 };
 
-export const Post = ({ post, hideSubscribe = false }: PostProps) => {
+// Composant interactif pour les sondages
+const PollWidget = ({ question, options, percentages }: { 
+  question: string; 
+  options: string[]; 
+  percentages: number[];
+}) => {
+  const [hasVoted, setHasVoted] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  
+  const handleVote = (idx: number) => {
+    if (!hasVoted) {
+      setSelectedOption(idx);
+      setHasVoted(true);
+    }
+  };
+  
+  // Déterminer la couleur de la barre selon le pourcentage
+  const getBarColor = (percentage: number, isSelected: boolean) => {
+    if (isSelected) return 'bg-(--yellow)';
+    if (percentage >= 50) return 'bg-green-500/60';
+    if (percentage >= 30) return 'bg-amber-500/60';
+    return 'bg-white/30';
+  };
+  
+  return (
+    <div className="mt-3 bg-[#3d3525]/80 backdrop-blur-xl rounded-2xl border border-white/10 shadow-lg overflow-hidden p-4">
+      <p className="text-xs text-gray-400 mb-1">📊 Sondage</p>
+      <p className="font-bold text-(--text-color) mb-3 break-all">{question}</p>
+      <div className="space-y-2">
+        {options.map((option, idx) => (
+          <button
+            key={idx}
+            onClick={() => handleVote(idx)}
+            disabled={hasVoted}
+            className={`w-full relative overflow-hidden rounded-xl transition-all ${
+              hasVoted ? 'cursor-default' : 'cursor-pointer hover:opacity-80 active:scale-[0.98]'
+            }`}
+          >
+            {/* Barre de progression - visible après vote */}
+            {hasVoted && (
+              <div 
+                className={`absolute inset-0 transition-all duration-500 ease-out ${getBarColor(percentages[idx], selectedOption === idx)}`}
+                style={{ width: `${percentages[idx]}%` }}
+              />
+            )}
+            
+            {/* Contenu */}
+            <div className={`relative flex items-center justify-between px-4 py-2.5 ${
+              hasVoted ? '' : 'bg-white/10'
+            }`}>
+              <span className="text-(--text-color) text-sm">{option}</span>
+              {hasVoted && (
+                <span className={`text-sm font-semibold ${
+                  selectedOption === idx ? 'text-(--yellow)' : 'text-(--text-color)'
+                }`}>
+                  {percentages[idx]}%
+                </span>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+      {hasVoted && (
+        <p className="text-xs text-gray-400 mt-2 text-center">Merci pour votre vote !</p>
+      )}
+    </div>
+  );
+};
+
+export const Post = ({ post, hideSubscribe = false, onDelete }: PostProps) => {
   const { isPostLiked, toggleLike, getComments, addComment, isCommentLiked, toggleCommentLike } = useSocial();
   const { isFollowing, followUser, unfollowUser } = useFollow();
+  const { playTrack, pause, isPlaying, currentTrack } = usePlayer();
+  const { isTrackFavorite, toggleFavorite, isTrackInAnyPlaylist } = usePlaylist();
+  const { user } = useAuth();
+  const router = useRouter();
+  
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [isClient, setIsClient] = useState(false);
+  
+  // États pour l'ajout à playlist (comme navbar)
+  const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
+  const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = useState<{id: string; name: string; artist: string; image: string} | null>(null);
+  
+  // État pour afficher les tracks de la playlist
+  const [showPlaylistTracks, setShowPlaylistTracks] = useState(false);
+  
+  // État pour la modal de suppression
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  
+  // Vérifier si c'est notre propre post
+  const isOwnPost = user?.username === post.username || user?.displayName === post.username;
+  
+  // Handler pour supprimer le post
+  const handleDelete = () => {
+    if (post.id) {
+      deleteUserPost(post.id);
+      setShowDeleteModal(false);
+      onDelete?.();
+    }
+  };
+  
+  // Formater la durée
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // ID utilisateur basé sur le post (artistId ou hash du username)
   const userId = useMemo(() => {
@@ -132,7 +243,7 @@ export const Post = ({ post, hideSubscribe = false }: PostProps) => {
               <RelativeTimeDisplay datePosted={post.datePosted}/>
             </span>
           </div>
-          {!hideSubscribe && (
+          {!hideSubscribe && !isOwnPost && (
             <button 
               onClick={handleFollow}
               className={`cursor-pointer transition-all text-[0.8em] py-1 px-3 rounded-[5px] ${
@@ -144,6 +255,16 @@ export const Post = ({ post, hideSubscribe = false }: PostProps) => {
               {isUserFollowed ? 'Abonné' : "S'abonner"}
             </button>
           )}
+          {/* Bouton supprimer pour ses propres posts */}
+          {isOwnPost && onDelete && (
+            <button 
+              onClick={() => setShowDeleteModal(true)}
+              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+              title="Supprimer le post"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
         </header>
         {/* Content */}
         <div>
@@ -151,6 +272,290 @@ export const Post = ({ post, hideSubscribe = false }: PostProps) => {
           {post.music && (
             <MusicPlayer className="mt-4" music={post.music}/>
           )}
+          
+          {/* Widget Événement */}
+          {post.attachedEvent && (
+            <div className="mt-3 bg-[#3d3525]/80 backdrop-blur-xl rounded-2xl border border-white/10 shadow-lg overflow-hidden p-3">
+              <div className="flex items-stretch gap-3">
+                <div className="relative w-16 self-stretch rounded-lg overflow-hidden flex-shrink-0">
+                  <Image src="/event.png" alt={post.attachedEvent.name} fill sizes="64px" className="object-cover" />
+                </div>
+                <div className="flex-grow min-w-0">
+                  <p className="font-bold text-(--text-color) truncate text-sm">{post.attachedEvent.name}</p>
+                  <p className="text-xs text-gray-400 truncate">
+                    {post.attachedEvent.artist_id ? (
+                      <Link href={`/profile/${post.attachedEvent.artist_id}`} onClick={e => e.stopPropagation()} className="hover:underline hover:text-(--text-color) transition-colors">
+                        {post.attachedEvent.artist}
+                      </Link>
+                    ) : post.attachedEvent.artist}
+                  </p>
+                  <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                    <MapPin size={10} />
+                    <span className="truncate">{post.attachedEvent.venue}, {post.attachedEvent.city}</span>
+                  </div>
+                </div>
+                <span className="text-sm font-semibold text-(--yellow) flex-shrink-0">{post.attachedEvent.price}</span>
+              </div>
+            </div>
+          )}
+          
+          {/* Widget Sondage - Interactif */}
+          {post.poll && (() => {
+            // Générer des pourcentages déterministes basés sur le hash de la question
+            const generatePercentages = (options: string[], question: string) => {
+              // Créer un seed basé sur la question
+              let seed = 0;
+              for (let i = 0; i < question.length; i++) {
+                seed += question.charCodeAt(i) * (i + 1);
+              }
+              
+              // Générer des valeurs pseudo-aléatoires
+              const values = options.map((_, idx) => {
+                const val = ((seed * (idx + 1) * 7) % 100) + 10;
+                return val;
+              });
+              
+              // Normaliser pour avoir 100%
+              const total = values.reduce((a, b) => a + b, 0);
+              return values.map(v => Math.round((v / total) * 100));
+            };
+            
+            const percentages = generatePercentages(post.poll.options, post.poll.question);
+            
+            return (
+              <PollWidget 
+                question={post.poll.question} 
+                options={post.poll.options} 
+                percentages={percentages}
+              />
+            );
+          })()}
+          
+          {/* Widget Tracks - Style exact navbar mini-player */}
+          {post.attachedTracks && post.attachedTracks.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {post.attachedTracks.map((track) => {
+                const isCurrentTrackActive = currentTrack?.id === track.id;
+                const isCurrentlyPlaying = isCurrentTrackActive && isPlaying;
+                const isTrackSaved = isTrackInAnyPlaylist(track.id);
+                
+                return (
+                  <div key={track.id} className="bg-[#3d3525]/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/10 overflow-hidden">
+                    {/* Contenu du player */}
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      {/* Cover */}
+                      <div className="relative w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden shadow-lg">
+                        <Image
+                          src={track.image || '/albumCoverExample.png'}
+                          alt={track.name}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                        />
+                      </div>
+
+                      {/* Infos */}
+                      <div className="flex-grow min-w-0">
+                        <p className={`font-medium truncate text-sm ${isCurrentTrackActive ? 'text-(--yellow)' : 'text-(--text-color)'}`}>
+                          {track.name}
+                        </p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {track.artist_id ? (
+                            <Link href={`/profile/${track.artist_id}`} onClick={e => e.stopPropagation()} className="hover:underline hover:text-(--text-color) transition-colors">
+                              {track.artist}
+                            </Link>
+                          ) : track.artist}
+                        </p>
+                      </div>
+
+                      {/* Bouton Ajouter à playlist - Ouvre modal comme navbar */}
+                      <button 
+                        onClick={() => {
+                          setSelectedTrackForPlaylist(track);
+                          setShowAddToPlaylist(true);
+                        }}
+                        className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
+                          isTrackSaved 
+                            ? 'bg-(--text-color) text-(--background-brown)' 
+                            : 'border-2 border-(--text-color) text-(--text-color) hover:bg-(--text-color)/10'
+                        }`}
+                      >
+                        {isTrackSaved ? <Check size={16} strokeWidth={3} /> : <Plus size={16} />}
+                      </button>
+
+                      {/* Bouton Play/Pause */}
+                      <button 
+                        onClick={() => {
+                          if (isCurrentlyPlaying) {
+                            pause();
+                          } else {
+                            playTrack({
+                              id: track.id,
+                              name: track.name,
+                              artist_name: track.artist,
+                              artist_id: track.artist_id,
+                              image: track.image,
+                              album_image: track.image,
+                              audio: track.audio || '',
+                              duration: 0
+                            } as any);
+                          }
+                        }}
+                        className="p-2.5 bg-(--text-color) rounded-full text-(--background-brown) hover:scale-105 transition-transform flex-shrink-0"
+                      >
+                        {isCurrentlyPlaying ? (
+                          <Pause size={16} fill="currentColor" />
+                        ) : (
+                          <Play size={16} fill="currentColor" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* Widget Playlist - Style exact createPost avec play, toggle tracks et flèche */}
+          {post.attachedPlaylist && (() => {
+            // Simuler les tracks de la playlist (dans un vrai cas, ces données seraient dans le post)
+            const playlistTracks = post.attachedPlaylist.tracks || [];
+            const isPlaylistPlaying = isPlaying && playlistTracks.some((t: any) => t.id === currentTrack?.id);
+            
+            return (
+              <div className="mt-3 bg-[#3d3525]/80 backdrop-blur-xl rounded-2xl border border-white/10 shadow-lg overflow-hidden">
+                {/* Header avec infos playlist + boutons */}
+                <div className="p-4 flex items-center gap-3">
+                  <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 shadow-lg bg-black/20">
+                    <Image
+                      src={post.attachedPlaylist.coverImage || '/albumCoverExample.png'}
+                      alt={post.attachedPlaylist.name}
+                      fill
+                      sizes="56px"
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="flex-grow min-w-0">
+                    <p className="font-bold text-(--text-color) truncate">{post.attachedPlaylist.name}</p>
+                    <p className="text-sm text-gray-400 truncate">
+                      {playlistTracks.length > 0 ? `${playlistTracks.length} musiques` : 'Playlist'}
+                    </p>
+                  </div>
+                  {/* Bouton Play/Pause - Grand et cream */}
+                  {playlistTracks.length > 0 && (
+                    <button 
+                      onClick={() => {
+                        if (isPlaylistPlaying) {
+                          pause();
+                        } else {
+                          playTrack(playlistTracks[0] as any, playlistTracks as any);
+                        }
+                      }}
+                      className="w-10 h-10 bg-(--text-color) rounded-full text-(--background-brown) hover:scale-105 transition-transform flex-shrink-0 flex items-center justify-center"
+                    >
+                      {isPlaylistPlaying ? (
+                        <Pause size={20} fill="currentColor" />
+                      ) : (
+                        <Play size={20} fill="currentColor" className="ml-0.5" />
+                      )}
+                    </button>
+                  )}
+                  {/* Bouton Voir détails - Flèche vers page playlist */}
+                  <Link 
+                    href={`/music/playlist/${post.attachedPlaylist.id}`}
+                    className="w-8 h-8 rounded-full bg-(--text-color) hover:bg-(--text-color)/90 flex items-center justify-center flex-shrink-0 transition-colors"
+                  >
+                    <ArrowRight size={16} className="text-(--background-brown)" strokeWidth={2.5} />
+                  </Link>
+                </div>
+
+                {/* Toggle "Voir les musiques" - Bouton pill avec marges */}
+                {playlistTracks.length > 0 && (
+                  <div className="px-4 pb-4">
+                    <button
+                      onClick={() => setShowPlaylistTracks(!showPlaylistTracks)}
+                      className="w-full py-2.5 bg-white/10 hover:bg-white/15 text-(--text-color) text-sm font-medium flex items-center justify-center gap-1.5 transition-colors rounded-full"
+                    >
+                      {showPlaylistTracks ? 'Cacher les musiques' : 'Voir les musiques'} 
+                      <ChevronUp size={16} className={`transition-transform ${showPlaylistTracks ? '' : 'rotate-180'}`} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Liste des musiques - Style TrackCard avec interaction */}
+                {showPlaylistTracks && playlistTracks.length > 0 && (
+                  <div className="max-h-[220px] overflow-y-auto bg-[#3d3525]/80 backdrop-blur-xl px-2 pb-3">
+                    {playlistTracks.map((track: any, index: number) => {
+                      const isTrackActive = currentTrack?.id === track.id;
+                      const isTrackPlaying = isTrackActive && isPlaying;
+                      
+                      return (
+                        <div 
+                          key={track.id} 
+                          onClick={() => {
+                            if (isTrackPlaying) {
+                              pause();
+                            } else {
+                              playTrack(track as any, playlistTracks as any);
+                            }
+                          }}
+                          className={`flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group ${
+                            isTrackActive ? 'bg-white/5' : ''
+                          }`}
+                        >
+                          {/* Index ou bouton play */}
+                          <div className="w-6 flex justify-center flex-shrink-0">
+                            <span className={`text-sm group-hover:hidden ${isTrackActive ? 'text-(--yellow)' : 'text-gray-400'}`}>
+                              {index + 1}
+                            </span>
+                            <button className="hidden group-hover:block text-(--text-color)">
+                              {isTrackPlaying ? (
+                                <Pause size={16} fill="currentColor" />
+                              ) : (
+                                <Play size={16} fill="currentColor" />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Cover de l'album */}
+                          <div className="relative w-10 h-10 flex-shrink-0 rounded overflow-hidden">
+                            <Image
+                              src={track.album_image || track.image || '/albumCoverExample.png'}
+                              alt={track.name}
+                              fill
+                              sizes="40px"
+                              className="object-cover"
+                            />
+                          </div>
+
+                          {/* Infos de la piste */}
+                          <div className="flex-grow min-w-0">
+                            <p className={`font-medium text-sm truncate ${isTrackActive ? 'text-(--yellow)' : 'text-(--text-color)'}`}>
+                              {track.name}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate">
+                              {track.artist_id ? (
+                                <Link href={`/profile/${track.artist_id}`} onClick={e => e.stopPropagation()} className="hover:underline hover:text-(--text-color) transition-colors">
+                                  {track.artist_name || track.artist}
+                                </Link>
+                              ) : (track.artist_name || track.artist)}
+                            </p>
+                          </div>
+
+                          {/* Durée */}
+                          {track.duration && (
+                            <span className="text-sm text-gray-400 flex-shrink-0">
+                              {formatDuration(track.duration)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
         <footer className="flex items-center justify-center gap-10 mt-4">
           {/* Commentaires - cliquable avec effet hover */}
@@ -243,6 +648,54 @@ export const Post = ({ post, hideSubscribe = false }: PostProps) => {
         formatLikes={printMinifiedNumber}
         variant="light"
       />
+      
+      {/* Modal ajouter à playlist */}
+      {selectedTrackForPlaylist && (
+        <AddToPlaylistModal
+          isOpen={showAddToPlaylist}
+          onClose={() => {
+            setShowAddToPlaylist(false);
+            setSelectedTrackForPlaylist(null);
+          }}
+          track={{
+            id: selectedTrackForPlaylist.id,
+            name: selectedTrackForPlaylist.name,
+            artist_name: selectedTrackForPlaylist.artist,
+            image: selectedTrackForPlaylist.image,
+            album_image: selectedTrackForPlaylist.image,
+            audio: '',
+            duration: 0
+          } as any}
+          onCreateNew={() => {}}
+        />
+      )}
+      
+      {/* Modal de confirmation de suppression */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowDeleteModal(false)}>
+          <div 
+            className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Supprimer ce post ?</h3>
+            <p className="text-gray-600 mb-6">Cette action est irréversible. Le post sera définitivement supprimé.</p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 py-2.5 px-4 border border-gray-300 text-gray-700 rounded-full font-medium hover:bg-gray-100 transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={handleDelete}
+                className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-full font-medium hover:bg-red-600 transition-colors"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
